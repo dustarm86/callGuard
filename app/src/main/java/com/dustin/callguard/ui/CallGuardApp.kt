@@ -88,6 +88,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
 
     LifecycleResumeEffect(Unit) {
         refreshStatus()
+        viewModel.reloadSettings()
         onPauseOrDispose { }
     }
 
@@ -100,6 +101,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
 
     val settings by viewModel.settings.collectAsState()
     val allowedNumbers by viewModel.allowedNumbers.collectAsState()
+    val allowedPrefixes by viewModel.allowedPrefixes.collectAsState()
     // entries past their expiry no longer count, even before the cleanup removes them
     val activeAllowedNumbers = allowedNumbers.filter { entry ->
         val expiresAt = entry.expiresAt
@@ -223,8 +225,11 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                 }
                 1 -> AllowlistScreen(
                     allowedNumbers = activeAllowedNumbers,
+                    allowedPrefixes = allowedPrefixes,
                     onAdd = viewModel::addAllowedNumber,
+                    onAddPrefix = viewModel::addAllowedPrefix,
                     onRemove = viewModel::removeAllowedNumber,
+                    onRemovePrefix = viewModel::removeAllowedPrefix,
                 )
                 2 -> TrendsScreen(
                     trends = trends,

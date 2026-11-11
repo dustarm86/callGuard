@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dustin.callguard.data.AllowedNumber
+import com.dustin.callguard.data.AllowedPrefix
 import com.dustin.callguard.data.AppDatabase
 import com.dustin.callguard.digest.DigestScheduler
 import com.dustin.callguard.data.NumberInfo
@@ -11,6 +12,7 @@ import com.dustin.callguard.data.ScreenedCall
 import com.dustin.callguard.data.ScreenerSettings
 import com.dustin.callguard.data.ScreenerSettingsStore
 import com.dustin.callguard.screening.NumberNormalizer
+import com.dustin.callguard.screening.PrefixNormalizer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,6 +45,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val settings: StateFlow<ScreenerSettings> = _settings.asStateFlow()
 
     val allowedNumbers: StateFlow<List<AllowedNumber>> = database.allowedNumberDao()
+        .observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val allowedPrefixes: StateFlow<List<AllowedPrefix>> = database.allowedPrefixDao()
         .observeAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -98,6 +104,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             )
         }
+    }
+
+    /** returns false when the prefix isn't 8 or 9 digits. */
+    fun addAllowedPrefix(rawPrefix: String, label: String): Boolean {
+        val prefix = PrefixNormalizer.normalize(rawPrefix) ?: return false
+        viewModelScope.launch {
+            database.allowedPrefixDao().upsert(
+                AllowedPrefix(prefix = prefix, label = label.trim(), addedAt = System.currentTimeMillis())
+            )
+        }
+        return true
+    }
+
+    fun removeAllowedPrefix(prefix: String) {
+        viewModelScope.launch { database.allowedPrefixDao().deleteByPrefix(prefix) }
+    }
+
+    /** picks up changes made outside the app, like the quick settings tile. */
+    fun reloadSettings() {
+        _settings.value = settingsStore.load()
     }
 
     fun removeAllowedNumber(normalizedNumber: String) {

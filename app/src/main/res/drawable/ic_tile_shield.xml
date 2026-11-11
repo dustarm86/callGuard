@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- solid shield for the quick settings tile; the system tints it -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="60"
+    android:viewportHeight="60">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,1L52,9L52,28C52,43 42,53 30,59C18,53 8,43 8,28L8,9Z" />
+</vector>

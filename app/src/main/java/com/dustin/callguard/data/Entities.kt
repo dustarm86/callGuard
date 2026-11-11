@@ -36,6 +36,14 @@ object VerificationStatus {
     const val FAILED = 2
 }
 
+/** a block of numbers that always rings, like (315) 555-01xx. stored as the leading 8 or 9 digits. */
+@Entity(tableName = "allowed_prefixes")
+data class AllowedPrefix(
+    @PrimaryKey val prefix: String,
+    val label: String,
+    val addedAt: Long,
+)
+
 /** a user's note and tag for a number. kept apart from the log so it survives log cleanup. */
 @Entity(tableName = "number_info")
 data class NumberInfo(

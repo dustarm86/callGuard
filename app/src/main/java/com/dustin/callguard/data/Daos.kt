@@ -28,6 +28,22 @@ interface AllowedNumberDao {
 }
 
 @Dao
+interface AllowedPrefixDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(allowedPrefix: AllowedPrefix)
+
+    @Query("SELECT * FROM allowed_prefixes ORDER BY prefix")
+    fun observeAll(): Flow<List<AllowedPrefix>>
+
+    // prefixes are digits only, so LIKE has no wildcard characters to worry about
+    @Query("SELECT EXISTS(SELECT 1 FROM allowed_prefixes WHERE :normalizedNumber LIKE prefix || '%')")
+    suspend fun matchesAnyPrefix(normalizedNumber: String): Boolean
+
+    @Query("DELETE FROM allowed_prefixes WHERE prefix = :prefix")
+    suspend fun deleteByPrefix(prefix: String)
+}
+
+@Dao
 interface ScreenedCallDao {
     @Insert
     suspend fun insert(screenedCall: ScreenedCall)

@@ -3,6 +3,7 @@ package com.dustin.callguard.screening
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.SystemClock
 import android.telecom.Call
 import android.telecom.CallScreeningService
 import android.telecom.Connection
@@ -25,6 +26,7 @@ class CallScreenerService : CallScreeningService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onScreenCall(callDetails: Call.Details) {
+        val startedAt = SystemClock.elapsedRealtime()
         Log.i(TAG, "onScreenCall received")
         if (callDetails.callDirection != Call.Details.DIRECTION_INCOMING) {
             respondToCall(callDetails, allowResponse())
@@ -40,7 +42,7 @@ class CallScreenerService : CallScreeningService() {
                 allowResponse()
             }
             respondToCall(callDetails, response)
-            Log.i(TAG, "respondToCall sent")
+            Log.i(TAG, "respondToCall sent after ${SystemClock.elapsedRealtime() - startedAt} ms")
         }
     }
 
@@ -59,8 +61,10 @@ class CallScreenerService : CallScreeningService() {
         val nowMillis = System.currentTimeMillis()
 
         val isContact = rawNumber != null && ContactLookup.isContact(applicationContext, rawNumber)
-        val isAllowlisted = normalizedNumber != null &&
-            database.allowedNumberDao().isAllowedNumber(normalizedNumber, nowMillis)
+        val isAllowlisted = normalizedNumber != null && (
+            database.allowedNumberDao().isAllowedNumber(normalizedNumber, nowMillis) ||
+                database.allowedPrefixDao().matchesAnyPrefix(normalizedNumber)
+            )
         val hasRecentSilencedCall = normalizedNumber != null && settings.repeatBypassEnabled &&
             database.screenedCallDao().countSilencedSince(
                 normalizedNumber,
