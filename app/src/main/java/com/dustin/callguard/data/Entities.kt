@@ -23,3 +23,18 @@ data class ScreenedCall(
     // name of a ScreeningOutcome
     val outcome: String,
 )
+
+/** a user's note and tag for a number. kept apart from the log so it survives log cleanup. */
+@Entity(tableName = "number_info")
+data class NumberInfo(
+    @PrimaryKey val normalizedNumber: String,
+    val note: String,
+    // empty, or one of NumberTag
+    val tag: String,
+    val updatedAt: Long,
+)
+
+object NumberTag {
+    const val SPAM = "SPAM"
+    const val KNOWN = "KNOWN"
+}

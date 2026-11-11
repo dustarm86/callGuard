@@ -91,6 +91,8 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
     val settings by viewModel.settings.collectAsState()
     val allowedNumbers by viewModel.allowedNumbers.collectAsState()
     val screenedCalls by viewModel.screenedCalls.collectAsState()
+    val numberInfo by viewModel.numberInfo.collectAsState()
+    var openedNumber by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     Scaffold(
@@ -123,7 +125,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                 .padding(innerPadding)
                 .fillMaxSize(),
         ) {
-            StatusCard(
+            if (openedNumber == null) StatusCard(
                 isRoleHeld = isRoleHeld,
                 hasContactsPermission = hasContactsPermission,
                 onRequestRole = {
@@ -138,12 +140,36 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
             )
 
             when (selectedTab) {
-                0 -> LogScreen(
-                    calls = screenedCalls,
-                    allowedNormalizedNumbers = allowedNumbers.map { it.normalizedNumber }.toSet(),
-                    onAllow = { call -> viewModel.addAllowedNumber(call.rawNumber.orEmpty(), "") },
-                    onClear = viewModel::clearLog,
-                )
+                0 -> {
+                    val allowedSet = allowedNumbers.map { it.normalizedNumber }.toSet()
+                    val opened = openedNumber
+                    if (opened != null) {
+                        CallDetailScreen(
+                            normalizedNumber = opened,
+                            calls = screenedCalls,
+                            info = numberInfo[opened],
+                            isAllowed = opened in allowedSet,
+                            onSave = { note, tag -> viewModel.saveNumberInfo(opened, note, tag) },
+                            onToggleAllow = {
+                                if (opened in allowedSet) {
+                                    viewModel.removeAllowedNumber(opened)
+                                } else {
+                                    viewModel.addAllowedNumber(opened, "")
+                                }
+                            },
+                            onBack = { openedNumber = null },
+                        )
+                    } else {
+                        LogScreen(
+                            calls = screenedCalls,
+                            allowedNormalizedNumbers = allowedSet,
+                            numberInfo = numberInfo,
+                            onOpen = { call -> openedNumber = call.normalizedNumber },
+                            onAllow = { call -> viewModel.addAllowedNumber(call.rawNumber.orEmpty(), "") },
+                            onClear = viewModel::clearLog,
+                        )
+                    }
+                }
                 1 -> AllowlistScreen(
                     allowedNumbers = allowedNumbers,
                     onAdd = viewModel::addAllowedNumber,

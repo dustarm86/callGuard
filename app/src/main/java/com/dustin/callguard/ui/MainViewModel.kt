@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dustin.callguard.data.AllowedNumber
 import com.dustin.callguard.data.AppDatabase
+import com.dustin.callguard.data.NumberInfo
 import com.dustin.callguard.data.ScreenedCall
 import com.dustin.callguard.data.ScreenerSettings
 import com.dustin.callguard.data.ScreenerSettingsStore
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -31,6 +33,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val screenedCalls: StateFlow<List<ScreenedCall>> = database.screenedCallDao()
         .observeRecent(200)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val numberInfo: StateFlow<Map<String, NumberInfo>> = database.numberInfoDao()
+        .observeAll()
+        .map { list -> list.associateBy { it.normalizedNumber } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     fun updateSettings(transform: (ScreenerSettings) -> ScreenerSettings) {
         val updated = transform(_settings.value)
@@ -56,6 +63,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun removeAllowedNumber(normalizedNumber: String) {
         viewModelScope.launch {
             database.allowedNumberDao().deleteByNumber(normalizedNumber)
+        }
+    }
+
+    /** saves a note and tag for a number; an empty note and no tag removes the entry. */
+    fun saveNumberInfo(normalizedNumber: String, note: String, tag: String) {
+        viewModelScope.launch {
+            val dao = database.numberInfoDao()
+            if (note.isBlank() && tag.isEmpty()) {
+                dao.deleteByNumber(normalizedNumber)
+            } else {
+                dao.upsert(NumberInfo(normalizedNumber, note.trim(), tag, System.currentTimeMillis()))
+            }
         }
     }
 

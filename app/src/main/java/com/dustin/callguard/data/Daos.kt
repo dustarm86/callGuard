@@ -42,3 +42,15 @@ interface ScreenedCallDao {
     @Query("DELETE FROM screened_calls")
     suspend fun clearAll()
 }
+
+@Dao
+interface NumberInfoDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(numberInfo: NumberInfo)
+
+    @Query("SELECT * FROM number_info")
+    fun observeAll(): Flow<List<NumberInfo>>
+
+    @Query("DELETE FROM number_info WHERE normalizedNumber = :normalizedNumber")
+    suspend fun deleteByNumber(normalizedNumber: String)
+}
