@@ -24,6 +24,7 @@ class CallScreenerService : CallScreeningService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onScreenCall(callDetails: Call.Details) {
+        Log.i(TAG, "onScreenCall received")
         if (callDetails.callDirection != Call.Details.DIRECTION_INCOMING) {
             respondToCall(callDetails, allowResponse())
             return
@@ -38,6 +39,7 @@ class CallScreenerService : CallScreeningService() {
                 allowResponse()
             }
             respondToCall(callDetails, response)
+            Log.i(TAG, "respondToCall sent")
         }
     }
 
@@ -91,6 +93,7 @@ class CallScreenerService : CallScreeningService() {
             screenedCallDao.deleteOlderThan(nowMillis - LOG_RETENTION_MS)
         }
 
+        Log.i(TAG, "outcome=${outcome.name} allowsRing=${outcome.allowsRing}")
         return if (outcome.allowsRing) allowResponse() else silenceResponse()
     }
 
