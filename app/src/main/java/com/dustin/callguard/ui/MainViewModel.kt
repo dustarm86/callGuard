@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dustin.callguard.data.AllowedNumber
 import com.dustin.callguard.data.AppDatabase
+import com.dustin.callguard.digest.DigestScheduler
 import com.dustin.callguard.data.NumberInfo
 import com.dustin.callguard.data.ScreenedCall
 import com.dustin.callguard.data.ScreenerSettings
@@ -24,6 +25,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsStore = ScreenerSettingsStore(application)
 
     private val _settings = MutableStateFlow(settingsStore.load())
+
+    init {
+        // WorkManager keeps queued runs across restarts; this just makes sure they match the settings
+        DigestScheduler.reschedule(application)
+    }
+
+    private fun digestFields(settings: ScreenerSettings) = listOf(
+        settings.notificationsEnabled,
+        settings.dailyDigestEnabled,
+        settings.dailyDigestMinutes,
+        settings.weeklyDigestEnabled,
+        settings.weeklyDigestDay,
+        settings.weeklyDigestMinutes,
+    )
     val settings: StateFlow<ScreenerSettings> = _settings.asStateFlow()
 
     val allowedNumbers: StateFlow<List<AllowedNumber>> = database.allowedNumberDao()
@@ -40,9 +55,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     fun updateSettings(transform: (ScreenerSettings) -> ScreenerSettings) {
-        val updated = transform(_settings.value)
+        val previous = _settings.value
+        val updated = transform(previous)
         _settings.value = updated
         settingsStore.save(updated)
+        if (digestFields(previous) != digestFields(updated)) {
+            DigestScheduler.reschedule(getApplication<Application>())
+        }
     }
 
     /** returns false when the number can't be normalized into something usable. */

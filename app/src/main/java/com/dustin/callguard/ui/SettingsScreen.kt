@@ -1,15 +1,21 @@
 package com.dustin.callguard.ui
 
+import android.Manifest
 import android.app.TimePickerDialog
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -17,12 +23,18 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.dustin.callguard.data.ScreenerSettings
+import com.dustin.callguard.digest.DigestNotifier
+import com.dustin.callguard.digest.DigestScheduler
 import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -121,7 +133,107 @@ fun SettingsScreen(
                 }
             }
         }
+
+        NotificationSettings(settings = settings, onChange = onChange)
     }
+}
+
+@Composable
+private fun NotificationSettings(
+    settings: ScreenerSettings,
+    onChange: ((ScreenerSettings) -> ScreenerSettings) -> Unit,
+) {
+    val context = LocalContext.current
+    var permissionGranted by remember { mutableStateOf(DigestNotifier.hasPermission(context)) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> permissionGranted = granted }
+
+    Text(
+        "summaries",
+        style = MaterialTheme.typography.titleLarge,
+        modifier = Modifier.padding(top = 16.dp),
+    )
+
+    SwitchRow(
+        title = "summary notifications",
+        subtitle = "master switch for the daily and weekly summaries below. off by default.",
+        checked = settings.notificationsEnabled,
+        onCheckedChange = { checked ->
+            onChange { it.copy(notificationsEnabled = checked) }
+            if (checked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !permissionGranted) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        },
+    )
+
+    if (!settings.notificationsEnabled) return
+
+    if (!permissionGranted) {
+        Text(
+            "android is blocking notifications for callGuard. allow them in android's app settings for callGuard, then reopen this screen.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+
+    SwitchRow(
+        title = "daily summary",
+        subtitle = "calls silenced in the last 24 hours.",
+        checked = settings.dailyDigestEnabled,
+        onCheckedChange = { checked -> onChange { it.copy(dailyDigestEnabled = checked) } },
+    )
+    if (settings.dailyDigestEnabled) {
+        OutlinedButton(onClick = {
+            showTimePicker(context, settings.dailyDigestMinutes) { picked ->
+                onChange { it.copy(dailyDigestMinutes = picked) }
+            }
+        }) { Text("every day at ${formatMinutes(settings.dailyDigestMinutes)}") }
+    }
+
+    SwitchRow(
+        title = "weekly summary",
+        subtitle = "calls silenced in the last 7 days.",
+        checked = settings.weeklyDigestEnabled,
+        onCheckedChange = { checked -> onChange { it.copy(weeklyDigestEnabled = checked) } },
+    )
+    if (settings.weeklyDigestEnabled) {
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            DayOfWeek.values().forEach { day ->
+                FilterChip(
+                    selected = settings.weeklyDigestDay == day.value,
+                    onClick = { onChange { it.copy(weeklyDigestDay = day.value) } },
+                    label = { Text(day.getDisplayName(TextStyle.SHORT, Locale.getDefault())) },
+                )
+            }
+        }
+        OutlinedButton(onClick = {
+            showTimePicker(context, settings.weeklyDigestMinutes) { picked ->
+                onChange { it.copy(weeklyDigestMinutes = picked) }
+            }
+        }) {
+            val dayName = DayOfWeek.of(settings.weeklyDigestDay.coerceIn(1, 7))
+                .getDisplayName(TextStyle.FULL, Locale.getDefault())
+            Text("every $dayName at ${formatMinutes(settings.weeklyDigestMinutes)}")
+        }
+    }
+
+    SwitchRow(
+        title = "skip empty summaries",
+        subtitle = "don't send a notification when nothing was silenced.",
+        checked = settings.skipDigestWhenZero,
+        onCheckedChange = { checked -> onChange { it.copy(skipDigestWhenZero = checked) } },
+    )
+
+    Button(onClick = { DigestScheduler.sendTestNow(context) }) { Text("send a test summary now") }
+    Text(
+        "delivery can be a few minutes off because android batches background work to save battery.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
