@@ -1,4 +1,8 @@
-# callGuard
+<p align="center">
+  <img src="assets/icon.png" width="128" alt="callGuard icon">
+</p>
+
+<h1 align="center">callGuard</h1>
 
 personal android call screener. every incoming call goes through a `CallScreeningService`:
 
