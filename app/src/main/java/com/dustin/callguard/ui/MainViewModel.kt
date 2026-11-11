@@ -49,6 +49,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .observeRecent(200)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    // the whole log (kept for 30 days), for trends and export
+    val allCalls: StateFlow<List<ScreenedCall>> = database.screenedCallDao()
+        .observeAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val numberInfo: StateFlow<Map<String, NumberInfo>> = database.numberInfoDao()
         .observeAll()
         .map { list -> list.associateBy { it.normalizedNumber } }

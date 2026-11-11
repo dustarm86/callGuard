@@ -29,6 +29,9 @@ interface ScreenedCallDao {
     @Query("SELECT * FROM screened_calls ORDER BY timestamp DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<ScreenedCall>>
 
+    @Query("SELECT * FROM screened_calls ORDER BY timestamp DESC")
+    fun observeAll(): Flow<List<ScreenedCall>>
+
     @Query("SELECT * FROM screened_calls WHERE timestamp >= :sinceMillis ORDER BY timestamp DESC")
     suspend fun getSince(sinceMillis: Long): List<ScreenedCall>
 

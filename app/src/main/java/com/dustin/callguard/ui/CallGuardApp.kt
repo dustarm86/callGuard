@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Settings
@@ -47,6 +48,10 @@ import com.dustin.callguard.data.VerificationStatus
 import com.dustin.callguard.screening.SuspicionInput
 import com.dustin.callguard.screening.SuspicionResult
 import com.dustin.callguard.screening.SuspicionScorer
+import com.dustin.callguard.trends.ReportBuilder
+import com.dustin.callguard.trends.TrendAnalyzer
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -96,6 +101,10 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
     val allowedNumbers by viewModel.allowedNumbers.collectAsState()
     val screenedCalls by viewModel.screenedCalls.collectAsState()
     val numberInfo by viewModel.numberInfo.collectAsState()
+    val allCalls by viewModel.allCalls.collectAsState()
+    val trends = remember(allCalls, settings.ownNumber) {
+        TrendAnalyzer.analyze(allCalls, ZoneId.systemDefault(), settings.ownNumber)
+    }
     var openedNumber by rememberSaveable { mutableStateOf<String?>(null) }
     val callCounts = remember(screenedCalls) { screenedCalls.groupingBy { it.normalizedNumber }.eachCount() }
     val failedVerificationNumbers = remember(screenedCalls) {
@@ -137,6 +146,12 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                 NavigationBarItem(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
+                    icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                    label = { Text("trends") },
+                )
+                NavigationBarItem(
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 },
                     icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                     label = { Text("settings") },
                 )
@@ -199,6 +214,15 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                     allowedNumbers = allowedNumbers,
                     onAdd = viewModel::addAllowedNumber,
                     onRemove = viewModel::removeAllowedNumber,
+                )
+                2 -> TrendsScreen(
+                    trends = trends,
+                    hasOwnNumber = settings.ownNumber.isNotBlank(),
+                    onExportCsv = { ExportShare.shareCsv(context, allCalls) },
+                    onExportReport = {
+                        val html = ReportBuilder.build(allCalls, numberInfo, ZoneId.systemDefault(), ZonedDateTime.now())
+                        ExportShare.shareReport(context, html)
+                    },
                 )
                 else -> SettingsScreen(
                     settings = settings,
