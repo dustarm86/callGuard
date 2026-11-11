@@ -29,9 +29,11 @@ import androidx.compose.ui.unit.dp
 import com.dustin.callguard.data.NumberInfo
 import com.dustin.callguard.data.NumberTag
 import com.dustin.callguard.data.ScreenedCall
+import com.dustin.callguard.data.VerificationStatus
 import com.dustin.callguard.screening.AreaCodes
 import com.dustin.callguard.screening.NumberNormalizer
 import com.dustin.callguard.screening.ScreeningOutcome
+import com.dustin.callguard.screening.SuspicionResult
 import java.text.DateFormat
 import java.util.Date
 
@@ -48,6 +50,7 @@ fun CallDetailScreen(
     calls: List<ScreenedCall>,
     info: NumberInfo?,
     isAllowed: Boolean,
+    suspicion: SuspicionResult,
     onSave: (note: String, tag: String) -> Unit,
     onToggleAllow: () -> Unit,
     onBack: () -> Unit,
@@ -94,6 +97,25 @@ fun CallDetailScreen(
             )
         }
 
+        Column {
+            Text(
+                text = "suspicion: ${suspicion.level.label} (${suspicion.score}/100)",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            suspicion.reasons.forEach { reason ->
+                Text(
+                    text = "· $reason",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                text = "a rough hint built from the reasons above, not a verdict.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
                 selected = tag == NumberTag.SPAM,
@@ -135,7 +157,21 @@ fun CallDetailScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(dateFormat.format(Date(call.timestamp)), style = MaterialTheme.typography.bodyMedium)
+                Column {
+                    Text(dateFormat.format(Date(call.timestamp)), style = MaterialTheme.typography.bodyMedium)
+                    val verification = when (call.verificationStatus) {
+                        VerificationStatus.PASSED -> "caller verification: passed"
+                        VerificationStatus.FAILED -> "caller verification: failed"
+                        else -> null
+                    }
+                    if (verification != null) {
+                        Text(
+                            text = verification,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 Text(
                     text = outcome?.label ?: call.outcome,
                     style = MaterialTheme.typography.bodyMedium,

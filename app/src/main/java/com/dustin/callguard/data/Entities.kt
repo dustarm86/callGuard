@@ -1,5 +1,6 @@
 package com.dustin.callguard.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -22,7 +23,16 @@ data class ScreenedCall(
     val timestamp: Long,
     // name of a ScreeningOutcome
     val outcome: String,
+    // a VerificationStatus value
+    @ColumnInfo(defaultValue = "0") val verificationStatus: Int = 0,
 )
+
+/** mirrors android's Connection.VERIFICATION_STATUS_* values (stir/shaken result from the carrier). */
+object VerificationStatus {
+    const val NOT_VERIFIED = 0
+    const val PASSED = 1
+    const val FAILED = 2
+}
 
 /** a user's note and tag for a number. kept apart from the log so it survives log cleanup. */
 @Entity(tableName = "number_info")

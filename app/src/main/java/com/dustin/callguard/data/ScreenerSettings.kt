@@ -13,6 +13,8 @@ data class ScreenerSettings(
     val repeatBypassEnabled: Boolean = false,
     val repeatWindowMinutes: Int = 3,
     val silenceFailedVerification: Boolean = true,
+    // the user's own number, used to spot neighbor spoofing. stays on the device.
+    val ownNumber: String = "",
 ) {
     fun isWorkDay(day: DayOfWeek): Boolean =
         (workDaysMask and (1 shl (day.value - 1))) != 0
@@ -47,6 +49,7 @@ class ScreenerSettingsStore(context: Context) {
             repeatBypassEnabled = prefs.getBoolean(KEY_REPEAT_ENABLED, defaults.repeatBypassEnabled),
             repeatWindowMinutes = prefs.getInt(KEY_REPEAT_WINDOW, defaults.repeatWindowMinutes),
             silenceFailedVerification = prefs.getBoolean(KEY_VERIFICATION, defaults.silenceFailedVerification),
+            ownNumber = prefs.getString(KEY_OWN_NUMBER, defaults.ownNumber).orEmpty(),
         )
     }
 
@@ -60,6 +63,7 @@ class ScreenerSettingsStore(context: Context) {
             .putBoolean(KEY_REPEAT_ENABLED, settings.repeatBypassEnabled)
             .putInt(KEY_REPEAT_WINDOW, settings.repeatWindowMinutes)
             .putBoolean(KEY_VERIFICATION, settings.silenceFailedVerification)
+            .putString(KEY_OWN_NUMBER, settings.ownNumber)
             .apply()
     }
 
@@ -72,5 +76,6 @@ class ScreenerSettingsStore(context: Context) {
         const val KEY_REPEAT_ENABLED = "repeatBypassEnabled"
         const val KEY_REPEAT_WINDOW = "repeatWindowMinutes"
         const val KEY_VERIFICATION = "silenceFailedVerification"
+        const val KEY_OWN_NUMBER = "ownNumber"
     }
 }

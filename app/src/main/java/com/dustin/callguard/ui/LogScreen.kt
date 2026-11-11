@@ -23,12 +23,15 @@ import com.dustin.callguard.data.ScreenedCall
 import com.dustin.callguard.screening.AreaCodes
 import com.dustin.callguard.screening.NumberNormalizer
 import com.dustin.callguard.screening.ScreeningOutcome
+import com.dustin.callguard.screening.SuspicionLevel
+import com.dustin.callguard.screening.SuspicionResult
 
 @Composable
 fun LogScreen(
     calls: List<ScreenedCall>,
     allowedNormalizedNumbers: Set<String>,
     numberInfo: Map<String, NumberInfo>,
+    suspicionFor: (String) -> SuspicionResult,
     onOpen: (ScreenedCall) -> Unit,
     onAllow: (ScreenedCall) -> Unit,
     onClear: () -> Unit,
@@ -96,6 +99,9 @@ fun LogScreen(
                         val extraLine = listOfNotNull(
                             AreaCodes.lookup(call.normalizedNumber),
                             tagLabel(call.normalizedNumber?.let { numberInfo[it]?.tag }),
+                            call.normalizedNumber?.let { suspicionFor(it) }
+                                ?.takeIf { it.level != SuspicionLevel.LOW }
+                                ?.let { "suspicion ${it.level.label}" },
                         ).joinToString(" · ")
                         if (extraLine.isNotEmpty()) {
                             Text(

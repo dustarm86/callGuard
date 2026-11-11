@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import com.dustin.callguard.data.AppDatabase
 import com.dustin.callguard.data.ScreenedCall
 import com.dustin.callguard.data.ScreenerSettingsStore
+import com.dustin.callguard.data.VerificationStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -65,8 +66,12 @@ class CallScreenerService : CallScreeningService() {
                 normalizedNumber,
                 nowMillis - settings.repeatWindowMinutes * 60_000L,
             ) > 0
-        val verificationFailed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-            callDetails.callerNumberVerificationStatus == Connection.VERIFICATION_STATUS_FAILED
+        val verificationStatus = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            callDetails.callerNumberVerificationStatus
+        } else {
+            VerificationStatus.NOT_VERIFIED
+        }
+        val verificationFailed = verificationStatus == Connection.VERIFICATION_STATUS_FAILED
 
         val outcome = ScreeningEngine.decide(
             ScreeningInput(
@@ -88,6 +93,7 @@ class CallScreenerService : CallScreeningService() {
                     normalizedNumber = normalizedNumber,
                     timestamp = nowMillis,
                     outcome = outcome.name,
+                    verificationStatus = verificationStatus,
                 )
             )
             screenedCallDao.deleteOlderThan(nowMillis - LOG_RETENTION_MS)

@@ -8,16 +8,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.dustin.callguard.data.ScreenerSettings
 import java.time.DayOfWeek
@@ -83,6 +86,21 @@ fun SettingsScreen(
             subtitle = "catches spoofed numbers, even ones that match a contact. needs carrier support, so it won't catch everything.",
             checked = settings.silenceFailedVerification,
             onCheckedChange = { checked -> onChange { it.copy(silenceFailedVerification = checked) } },
+        )
+
+        Text("your number", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+        Text(
+            "used to spot spoofed numbers that copy the start of yours. it never leaves this phone.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedTextField(
+            value = settings.ownNumber,
+            onValueChange = { typed -> onChange { it.copy(ownNumber = typed) } },
+            label = { Text("phone number") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            modifier = Modifier.fillMaxWidth(),
         )
 
         SwitchRow(

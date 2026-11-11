@@ -43,6 +43,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.dustin.callguard.data.VerificationStatus
+import com.dustin.callguard.screening.SuspicionInput
+import com.dustin.callguard.screening.SuspicionResult
+import com.dustin.callguard.screening.SuspicionScorer
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -93,6 +97,25 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
     val screenedCalls by viewModel.screenedCalls.collectAsState()
     val numberInfo by viewModel.numberInfo.collectAsState()
     var openedNumber by rememberSaveable { mutableStateOf<String?>(null) }
+    val callCounts = remember(screenedCalls) { screenedCalls.groupingBy { it.normalizedNumber }.eachCount() }
+    val failedVerificationNumbers = remember(screenedCalls) {
+        screenedCalls
+            .filter { it.verificationStatus == VerificationStatus.FAILED }
+            .mapNotNull { it.normalizedNumber }
+            .toSet()
+    }
+    val suspicionFor: (String) -> SuspicionResult = { number ->
+        SuspicionScorer.score(
+            SuspicionInput(
+                normalizedNumber = number,
+                callCount = callCounts[number] ?: 0,
+                verificationFailed = number in failedVerificationNumbers,
+                ownNumber = settings.ownNumber,
+                allowedNumbers = allowedNumbers.map { it.normalizedNumber },
+                tag = numberInfo[number]?.tag,
+            )
+        )
+    }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     Scaffold(
@@ -149,6 +172,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                             calls = screenedCalls,
                             info = numberInfo[opened],
                             isAllowed = opened in allowedSet,
+                            suspicion = suspicionFor(opened),
                             onSave = { note, tag -> viewModel.saveNumberInfo(opened, note, tag) },
                             onToggleAllow = {
                                 if (opened in allowedSet) {
@@ -164,6 +188,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                             calls = screenedCalls,
                             allowedNormalizedNumbers = allowedSet,
                             numberInfo = numberInfo,
+                            suspicionFor = suspicionFor,
                             onOpen = { call -> openedNumber = call.normalizedNumber },
                             onAllow = { call -> viewModel.addAllowedNumber(call.rawNumber.orEmpty(), "") },
                             onClear = viewModel::clearLog,
