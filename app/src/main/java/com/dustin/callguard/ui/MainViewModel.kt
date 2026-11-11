@@ -29,6 +29,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         // WorkManager keeps queued runs across restarts; this just makes sure they match the settings
         DigestScheduler.reschedule(application)
+        viewModelScope.launch { database.allowedNumberDao().deleteExpired(System.currentTimeMillis()) }
     }
 
     private fun digestFields(settings: ScreenerSettings) = listOf(
@@ -82,6 +83,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         return true
+    }
+
+    /** allows a number for a limited time, like a delivery driver or an appointment callback. */
+    fun allowTemporarily(normalizedNumber: String, durationMillis: Long) {
+        val now = System.currentTimeMillis()
+        viewModelScope.launch {
+            database.allowedNumberDao().upsert(
+                AllowedNumber(
+                    normalizedNumber = normalizedNumber,
+                    label = "temporary",
+                    addedAt = now,
+                    expiresAt = now + durationMillis,
+                )
+            )
+        }
     }
 
     fun removeAllowedNumber(normalizedNumber: String) {

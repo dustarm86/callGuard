@@ -14,8 +14,14 @@ interface AllowedNumberDao {
     @Query("SELECT * FROM allowed_numbers ORDER BY label COLLATE NOCASE, normalizedNumber")
     fun observeAll(): Flow<List<AllowedNumber>>
 
-    @Query("SELECT EXISTS(SELECT 1 FROM allowed_numbers WHERE normalizedNumber = :normalizedNumber)")
-    suspend fun isAllowedNumber(normalizedNumber: String): Boolean
+    @Query(
+        "SELECT EXISTS(SELECT 1 FROM allowed_numbers WHERE normalizedNumber = :normalizedNumber " +
+            "AND (expiresAt IS NULL OR expiresAt > :nowMillis))"
+    )
+    suspend fun isAllowedNumber(normalizedNumber: String, nowMillis: Long): Boolean
+
+    @Query("DELETE FROM allowed_numbers WHERE expiresAt IS NOT NULL AND expiresAt <= :nowMillis")
+    suspend fun deleteExpired(nowMillis: Long)
 
     @Query("DELETE FROM allowed_numbers WHERE normalizedNumber = :normalizedNumber")
     suspend fun deleteByNumber(normalizedNumber: String)

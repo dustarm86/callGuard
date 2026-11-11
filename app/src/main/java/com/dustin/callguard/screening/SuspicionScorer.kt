@@ -24,6 +24,8 @@ data class SuspicionInput(
     val allowedNumbers: Collection<String>,
     // empty, or a NumberTag
     val tag: String?,
+    // reasons from NanpValidator; empty when the number looks valid
+    val nanpProblems: List<String> = emptyList(),
 )
 
 /**
@@ -35,6 +37,7 @@ object SuspicionScorer {
     private const val FAILED_VERIFICATION_POINTS = 50
     private const val OWN_NUMBER_POINTS = 45
     private const val NEIGHBOR_POINTS = 40
+    private const val INVALID_NUMBER_POINTS = 45
     private const val SAME_AREA_CODE_POINTS = 5
     private const val ALLOWED_NEIGHBOR_POINTS = 20
     private const val REPEAT_POINTS = 8
@@ -63,6 +66,11 @@ object SuspicionScorer {
         if (input.verificationFailed) {
             score += FAILED_VERIFICATION_POINTS
             reasons += "failed caller verification, so the number is probably faked"
+        }
+
+        if (input.nanpProblems.isNotEmpty()) {
+            score += INVALID_NUMBER_POINTS
+            reasons += "not a real number: ${input.nanpProblems.first()}"
         }
 
         if (ownNumber != null) {

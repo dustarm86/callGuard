@@ -1,5 +1,6 @@
 package com.dustin.callguard.ui
 
+import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -79,6 +80,17 @@ fun AllowlistScreen(
                             text = NumberNormalizer.format(allowedNumber.normalizedNumber),
                             style = MaterialTheme.typography.titleMedium,
                         )
+                        allowedNumber.expiresAt?.let { expiresAt ->
+                            Text(
+                                text = "allowed until " + DateUtils.getRelativeTimeSpanString(
+                                    expiresAt,
+                                    System.currentTimeMillis(),
+                                    DateUtils.MINUTE_IN_MILLIS,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                         if (allowedNumber.label.isNotBlank()) {
                             Text(
                                 text = allowedNumber.label,

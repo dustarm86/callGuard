@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.dustin.callguard.data.VerificationStatus
+import com.dustin.callguard.screening.NanpValidator
 import com.dustin.callguard.screening.SuspicionInput
 import com.dustin.callguard.screening.SuspicionResult
 import com.dustin.callguard.screening.SuspicionScorer
@@ -99,6 +100,11 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
 
     val settings by viewModel.settings.collectAsState()
     val allowedNumbers by viewModel.allowedNumbers.collectAsState()
+    // entries past their expiry no longer count, even before the cleanup removes them
+    val activeAllowedNumbers = allowedNumbers.filter { entry ->
+        val expiresAt = entry.expiresAt
+        expiresAt == null || expiresAt > System.currentTimeMillis()
+    }
     val screenedCalls by viewModel.screenedCalls.collectAsState()
     val numberInfo by viewModel.numberInfo.collectAsState()
     val allCalls by viewModel.allCalls.collectAsState()
@@ -113,6 +119,9 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
             .mapNotNull { it.normalizedNumber }
             .toSet()
     }
+    val rawByNumber = remember(screenedCalls) {
+        screenedCalls.mapNotNull { call -> call.normalizedNumber?.let { it to call.rawNumber } }.toMap()
+    }
     val suspicionFor: (String) -> SuspicionResult = { number ->
         SuspicionScorer.score(
             SuspicionInput(
@@ -122,6 +131,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                 ownNumber = settings.ownNumber,
                 allowedNumbers = allowedNumbers.map { it.normalizedNumber },
                 tag = numberInfo[number]?.tag,
+                nanpProblems = NanpValidator.problems(rawByNumber[number], number),
             )
         )
     }
@@ -179,7 +189,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
 
             when (selectedTab) {
                 0 -> {
-                    val allowedSet = allowedNumbers.map { it.normalizedNumber }.toSet()
+                    val allowedSet = activeAllowedNumbers.map { it.normalizedNumber }.toSet()
                     val opened = openedNumber
                     if (opened != null) {
                         CallDetailScreen(
@@ -189,6 +199,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                             isAllowed = opened in allowedSet,
                             suspicion = suspicionFor(opened),
                             onSave = { note, tag -> viewModel.saveNumberInfo(opened, note, tag) },
+                            onAllowTemporarily = { viewModel.allowTemporarily(opened, 24L * 60 * 60 * 1000) },
                             onToggleAllow = {
                                 if (opened in allowedSet) {
                                     viewModel.removeAllowedNumber(opened)
@@ -211,7 +222,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                     }
                 }
                 1 -> AllowlistScreen(
-                    allowedNumbers = allowedNumbers,
+                    allowedNumbers = activeAllowedNumbers,
                     onAdd = viewModel::addAllowedNumber,
                     onRemove = viewModel::removeAllowedNumber,
                 )

@@ -53,6 +53,7 @@ fun CallDetailScreen(
     suspicion: SuspicionResult,
     onSave: (note: String, tag: String) -> Unit,
     onToggleAllow: () -> Unit,
+    onAllowTemporarily: () -> Unit,
     onBack: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -147,6 +148,9 @@ fun CallDetailScreen(
             OutlinedButton(onClick = onToggleAllow) {
                 Text(if (isAllowed) "remove from allowlist" else "always allow this number")
             }
+        }
+        if (!isAllowed) {
+            OutlinedButton(onClick = onAllowTemporarily) { Text("allow for 24 hours") }
         }
 
         HorizontalDivider()

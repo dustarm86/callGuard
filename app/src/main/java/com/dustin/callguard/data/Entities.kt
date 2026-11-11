@@ -10,6 +10,8 @@ data class AllowedNumber(
     @PrimaryKey val normalizedNumber: String,
     val label: String,
     val addedAt: Long,
+    // null = allowed until removed; otherwise allowed until this time (epoch millis)
+    val expiresAt: Long? = null,
 )
 
 @Entity(

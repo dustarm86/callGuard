@@ -18,7 +18,8 @@ class SuspicionScorerTest {
         ownNumber: String? = "3155551234",
         allowedNumbers: List<String> = emptyList(),
         tag: String? = null,
-    ) = SuspicionInput(number, callCount, verificationFailed, ownNumber, allowedNumbers, tag)
+        nanpProblems: List<String> = emptyList(),
+    ) = SuspicionInput(number, callCount, verificationFailed, ownNumber, allowedNumbers, tag, nanpProblems)
 
     @Test
     fun plainUnknownCallerIsLow() {
@@ -37,6 +38,13 @@ class SuspicionScorerTest {
     fun neighborThatCallsTwiceIsHigh() {
         val result = SuspicionScorer.score(input(number = "3155559999", callCount = 2))
         assertEquals(SuspicionLevel.HIGH, result.level)
+    }
+
+    @Test
+    fun impossibleNumberIsHigh() {
+        val result = SuspicionScorer.score(input(nanpProblems = listOf("exchange starts with 0")))
+        assertEquals(SuspicionLevel.HIGH, result.level)
+        assertTrue(result.reasons.any { it.contains("not a real number") })
     }
 
     @Test

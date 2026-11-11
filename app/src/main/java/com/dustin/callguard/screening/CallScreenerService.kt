@@ -60,7 +60,7 @@ class CallScreenerService : CallScreeningService() {
 
         val isContact = rawNumber != null && ContactLookup.isContact(applicationContext, rawNumber)
         val isAllowlisted = normalizedNumber != null &&
-            database.allowedNumberDao().isAllowedNumber(normalizedNumber)
+            database.allowedNumberDao().isAllowedNumber(normalizedNumber, nowMillis)
         val hasRecentSilencedCall = normalizedNumber != null && settings.repeatBypassEnabled &&
             database.screenedCallDao().countSilencedSince(
                 normalizedNumber,
