@@ -60,7 +60,7 @@ interface ScreenedCallDao {
     @Query(
         "SELECT COUNT(*) FROM screened_calls " +
             "WHERE normalizedNumber = :normalizedNumber " +
-            "AND outcome = 'SILENCED' AND timestamp >= :sinceMillis"
+            "AND outcome IN ('SILENCED', 'REJECTED') AND timestamp >= :sinceMillis"
     )
     suspend fun countSilencedSince(normalizedNumber: String, sinceMillis: Long): Int
 

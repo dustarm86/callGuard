@@ -28,10 +28,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -57,14 +55,14 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun CallGuardTheme(content: @Composable () -> Unit) {
+fun CallGuardTheme(useSystemColors: Boolean = false, content: @Composable () -> Unit) {
     val darkTheme = isSystemInDarkTheme()
     val context = LocalContext.current
     val colorScheme = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+        useSystemColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        darkTheme -> darkColorScheme()
-        else -> lightColorScheme()
+        darkTheme -> CallGuardDarkColors
+        else -> CallGuardLightColors
     }
     MaterialTheme(colorScheme = colorScheme, content = content)
 }
@@ -114,6 +112,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
         TrendAnalyzer.analyze(allCalls, ZoneId.systemDefault(), settings.ownNumber)
     }
     var openedNumber by rememberSaveable { mutableStateOf<String?>(null) }
+    var showSimulator by rememberSaveable { mutableStateOf(false) }
     val callCounts = remember(screenedCalls) { screenedCalls.groupingBy { it.normalizedNumber }.eachCount() }
     val failedVerificationNumbers = remember(screenedCalls) {
         screenedCalls
@@ -241,10 +240,20 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                         ExportShare.shareReport(context, html)
                     },
                 )
-                else -> SettingsScreen(
-                    settings = settings,
-                    onChange = viewModel::updateSettings,
-                )
+                else -> if (showSimulator) {
+                    SimulatorScreen(
+                        settings = settings,
+                        allowedNumbers = activeAllowedNumbers,
+                        allowedPrefixes = allowedPrefixes,
+                        onBack = { showSimulator = false },
+                    )
+                } else {
+                    SettingsScreen(
+                        settings = settings,
+                        onChange = viewModel::updateSettings,
+                        onOpenSimulator = { showSimulator = true },
+                    )
+                }
             }
         }
     }
@@ -266,9 +275,9 @@ private fun StatusCard(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isPaused) {
-                MaterialTheme.colorScheme.tertiaryContainer
-            } else if (isReady) {
                 MaterialTheme.colorScheme.secondaryContainer
+            } else if (isReady) {
+                MaterialTheme.colorScheme.primaryContainer
             } else {
                 MaterialTheme.colorScheme.errorContainer
             }

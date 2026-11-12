@@ -20,6 +20,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import java.time.LocalDateTime
+import java.util.concurrent.atomic.AtomicBoolean
 
 class CallScreenerService : CallScreeningService() {
 
@@ -27,7 +28,11 @@ class CallScreenerService : CallScreeningService() {
 
     override fun onScreenCall(callDetails: Call.Details) {
         val startedAt = SystemClock.elapsedRealtime()
-        Log.i(TAG, "onScreenCall received")
+        // how long android took to hand us the call (includes starting our process if it was asleep)
+        val receivedDelayMs = (System.currentTimeMillis() - callDetails.creationTimeMillis)
+            .takeIf { it in 0..MAX_PLAUSIBLE_DELAY_MS }
+        val coldStart = !firstCallHandled.getAndSet(true)
+        Log.i(TAG, "onScreenCall received, reached us ${receivedDelayMs ?: "?"} ms after android created the call, coldStart=$coldStart")
         if (callDetails.callDirection != Call.Details.DIRECTION_INCOMING) {
             respondToCall(callDetails, allowResponse())
             return
@@ -36,7 +41,7 @@ class CallScreenerService : CallScreeningService() {
         serviceScope.launch {
             // fail open: if anything goes wrong or takes too long, let the phone ring
             val response = try {
-                withTimeout(SCREENING_TIMEOUT_MS) { screenCall(callDetails) }
+                withTimeout(SCREENING_TIMEOUT_MS) { screenCall(callDetails, startedAt, receivedDelayMs, coldStart) }
             } catch (e: Exception) {
                 Log.w(TAG, "screening failed, letting the call ring", e)
                 allowResponse()
@@ -46,7 +51,12 @@ class CallScreenerService : CallScreeningService() {
         }
     }
 
-    private suspend fun screenCall(callDetails: Call.Details): CallResponse {
+    private suspend fun screenCall(
+        callDetails: Call.Details,
+        startedAt: Long,
+        receivedDelayMs: Long?,
+        coldStart: Boolean,
+    ): CallResponse {
         val hasContactsPermission = ContextCompat.checkSelfPermission(
             this,
             Manifest.permission.READ_CONTACTS,
@@ -98,13 +108,20 @@ class CallScreenerService : CallScreeningService() {
                     timestamp = nowMillis,
                     outcome = outcome.name,
                     verificationStatus = verificationStatus,
+                    receivedDelayMs = receivedDelayMs,
+                    decisionMs = SystemClock.elapsedRealtime() - startedAt,
+                    coldStart = coldStart,
                 )
             )
             screenedCallDao.deleteOlderThan(nowMillis - LOG_RETENTION_MS)
         }
 
-        Log.i(TAG, "outcome=${outcome.name} allowsRing=${outcome.allowsRing}")
-        return if (outcome.allowsRing) allowResponse() else silenceResponse()
+        Log.i(TAG, "outcome=${outcome.name} allowsRing=${outcome.allowsRing} rejects=${outcome.rejectsCall}")
+        return when {
+            outcome.allowsRing -> allowResponse()
+            outcome.rejectsCall -> rejectResponse()
+            else -> silenceResponse()
+        }
     }
 
     private fun allowResponse(): CallResponse = CallResponse.Builder().build()
@@ -118,6 +135,14 @@ class CallScreenerService : CallScreeningService() {
         .setSkipNotification(true)
         .build()
 
+    // reject = call ends right away; the caller usually hears busy or reaches voicemail
+    private fun rejectResponse(): CallResponse = CallResponse.Builder()
+        .setDisallowCall(true)
+        .setRejectCall(true)
+        .setSkipCallLog(false)
+        .setSkipNotification(true)
+        .build()
+
     override fun onDestroy() {
         serviceScope.cancel()
         super.onDestroy()
@@ -126,6 +151,9 @@ class CallScreenerService : CallScreeningService() {
     private companion object {
         const val TAG = "CallScreenerService"
         const val SCREENING_TIMEOUT_MS = 3_000L
+        const val MAX_PLAUSIBLE_DELAY_MS = 10 * 60 * 1000L
+        // true once this process has handled a call, so the first one can be flagged as a cold start
+        val firstCallHandled = AtomicBoolean(false)
         const val LOG_RETENTION_MS = 30L * 24 * 60 * 60 * 1000
     }
 }

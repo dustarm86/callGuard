@@ -13,7 +13,7 @@ object CsvExporter {
     private val timeFormat = DateTimeFormatter.ofPattern("HH:mm:ss")
 
     fun build(calls: List<ScreenedCall>, zone: ZoneId): String {
-        val lines = mutableListOf("date,time,number,area_code,place,state,outcome,caller_verification")
+        val lines = mutableListOf("date,time,number,area_code,place,state,outcome,caller_verification,received_delay_ms,decision_ms,cold_start")
         for (call in calls.sortedBy { it.timestamp }) {
             val time = ZonedDateTime.ofInstant(Instant.ofEpochMilli(call.timestamp), zone)
             val number = call.normalizedNumber
@@ -32,6 +32,9 @@ object CsvExporter {
                 state,
                 call.outcome,
                 verification,
+                call.receivedDelayMs?.toString().orEmpty(),
+                call.decisionMs?.toString().orEmpty(),
+                call.coldStart.toString(),
             ).joinToString(",") { csvField(it) }
         }
         return lines.joinToString("\n", postfix = "\n")

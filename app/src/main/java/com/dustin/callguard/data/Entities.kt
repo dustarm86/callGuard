@@ -27,6 +27,12 @@ data class ScreenedCall(
     val outcome: String,
     // a VerificationStatus value
     @ColumnInfo(defaultValue = "0") val verificationStatus: Int = 0,
+    // ms between android creating the call and the screener receiving it (null if unknown)
+    val receivedDelayMs: Long? = null,
+    // ms the screener took to reach its decision
+    val decisionMs: Long? = null,
+    // true when this was the first call since the app process started
+    @ColumnInfo(defaultValue = "0") val coldStart: Boolean = false,
 )
 
 /** mirrors android's Connection.VERIFICATION_STATUS_* values (stir/shaken result from the carrier). */

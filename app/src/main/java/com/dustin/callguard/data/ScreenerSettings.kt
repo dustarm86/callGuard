@@ -25,6 +25,10 @@ data class ScreenerSettings(
     val weeklyDigestDay: Int = 7,
     val weeklyDigestMinutes: Int = 9 * 60,
     val skipDigestWhenZero: Boolean = true,
+    // off = silence unknown callers (default); on = reject them instead
+    val rejectInsteadOfSilence: Boolean = false,
+    // off = callGuard's green and violet colors; on = the phone's wallpaper colors
+    val useSystemColors: Boolean = false,
 ) {
     fun isWorkDay(day: DayOfWeek): Boolean =
         (workDaysMask and (1 shl (day.value - 1))) != 0
@@ -67,6 +71,8 @@ class ScreenerSettingsStore(context: Context) {
             weeklyDigestDay = prefs.getInt(KEY_WEEKLY_DAY, defaults.weeklyDigestDay),
             weeklyDigestMinutes = prefs.getInt(KEY_WEEKLY_TIME, defaults.weeklyDigestMinutes),
             skipDigestWhenZero = prefs.getBoolean(KEY_SKIP_ZERO, defaults.skipDigestWhenZero),
+            rejectInsteadOfSilence = prefs.getBoolean(KEY_REJECT, defaults.rejectInsteadOfSilence),
+            useSystemColors = prefs.getBoolean(KEY_SYSTEM_COLORS, defaults.useSystemColors),
         )
     }
 
@@ -103,6 +109,8 @@ class ScreenerSettingsStore(context: Context) {
             .putInt(KEY_WEEKLY_DAY, settings.weeklyDigestDay)
             .putInt(KEY_WEEKLY_TIME, settings.weeklyDigestMinutes)
             .putBoolean(KEY_SKIP_ZERO, settings.skipDigestWhenZero)
+            .putBoolean(KEY_REJECT, settings.rejectInsteadOfSilence)
+            .putBoolean(KEY_SYSTEM_COLORS, settings.useSystemColors)
             .apply()
     }
 
@@ -123,5 +131,7 @@ class ScreenerSettingsStore(context: Context) {
         const val KEY_WEEKLY_DAY = "weeklyDigestDay"
         const val KEY_WEEKLY_TIME = "weeklyDigestMinutes"
         const val KEY_SKIP_ZERO = "skipDigestWhenZero"
+        const val KEY_REJECT = "rejectInsteadOfSilence"
+        const val KEY_SYSTEM_COLORS = "useSystemColors"
     }
 }

@@ -161,7 +161,7 @@ fun CallDetailScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(dateFormat.format(Date(call.timestamp)), style = MaterialTheme.typography.bodyMedium)
                     val verification = when (call.verificationStatus) {
                         VerificationStatus.PASSED -> "caller verification: passed"
@@ -171,6 +171,18 @@ fun CallDetailScreen(
                     if (verification != null) {
                         Text(
                             text = verification,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    val timing = listOfNotNull(
+                        call.decisionMs?.let { "decided in $it ms" },
+                        call.receivedDelayMs?.let { "reached callGuard $it ms after android created the call" },
+                        if (call.coldStart) "first call since the app process started" else null,
+                    ).joinToString(" · ")
+                    if (timing.isNotEmpty()) {
+                        Text(
+                            text = timing,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

@@ -45,6 +45,7 @@ import java.util.Locale
 fun SettingsScreen(
     settings: ScreenerSettings,
     onChange: ((ScreenerSettings) -> ScreenerSettings) -> Unit,
+    onOpenSimulator: () -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -134,7 +135,39 @@ fun SettingsScreen(
             }
         }
 
+        SwitchRow(
+            title = "reject instead of silence",
+            subtitle = "ends an unknown call right away instead of letting it ring silently. the caller usually hears busy or reaches voicemail, which can tell spammers the line is live. off by default.",
+            checked = settings.rejectInsteadOfSilence,
+            onCheckedChange = { checked -> onChange { it.copy(rejectInsteadOfSilence = checked) } },
+        )
+
         NotificationSettings(settings = settings, onChange = onChange)
+
+        Text(
+            "appearance",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(top = 16.dp),
+        )
+        SwitchRow(
+            title = "use my phone's wallpaper colors",
+            subtitle = "off uses callGuard's green and violet. on follows your wallpaper theme (android 12 and up).",
+            checked = settings.useSystemColors,
+            onCheckedChange = { checked -> onChange { it.copy(useSystemColors = checked) } },
+        )
+
+        Text(
+            "debug tools",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(top = 16.dp),
+        )
+        OutlinedButton(onClick = onOpenSimulator) { Text("simulate a call") }
+        Text(
+            "tap a screened call in the log to see how fast callGuard answered it.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 16.dp),
+        )
     }
 }
 

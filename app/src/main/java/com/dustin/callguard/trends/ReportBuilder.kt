@@ -39,11 +39,17 @@ object ReportBuilder {
                 else -> ""
             }
             val notes = listOf(tag, info?.note.orEmpty()).filter { it.isNotBlank() }.joinToString(" · ")
+            val timing = listOfNotNull(
+                call.decisionMs?.let { "decided in $it ms" },
+                call.receivedDelayMs?.let { "reached us $it ms after android" },
+                if (call.coldStart) "cold start" else null,
+            ).joinToString(" · ")
             "<tr><td>${esc(time.format(rowTime))}</td>" +
                 "<td class=\"num\">${esc(number?.let(NumberNormalizer::format) ?: "hidden number")}</td>" +
                 "<td>${esc(AreaCodes.lookup(number) ?: "—")}</td>" +
                 "<td>${esc(outcome)}</td>" +
                 "<td>${esc(verification)}</td>" +
+                "<td>${esc(timing)}</td>" +
                 "<td>${esc(notes)}</td></tr>"
         }
 
@@ -71,7 +77,7 @@ object ReportBuilder {
 <p>${calls.size} calls · generated ${esc(now.format(headerTime))}</p>
 <div class="wrap">
 <table>
-<thead><tr><th>when</th><th>number</th><th>where</th><th>result</th><th>verification</th><th>notes</th></tr></thead>
+<thead><tr><th>when</th><th>number</th><th>where</th><th>result</th><th>verification</th><th>timing</th><th>notes</th></tr></thead>
 <tbody>
 $rows
 </tbody>
