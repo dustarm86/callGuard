@@ -7,6 +7,7 @@ enum class ScreeningOutcome(
     val allowsRing: Boolean,
     val shouldLog: Boolean,
     val label: String,
+    val rejectsCall: Boolean = false,
 ) {
     ALLOWED_DISABLED(true, false, "screening off"),
     ALLOWED_OFF_HOURS(true, false, "outside work hours"),
@@ -15,6 +16,8 @@ enum class ScreeningOutcome(
     ALLOWED_REPEAT(true, true, "rang: called again"),
     SILENCED_SPOOF_SUSPECTED(false, true, "silenced: failed caller verification"),
     SILENCED(false, true, "silenced: not a contact"),
+    REJECTED_SPOOF_SUSPECTED(false, true, "rejected: failed caller verification", rejectsCall = true),
+    REJECTED(false, true, "rejected: not a contact", rejectsCall = true),
 }
 
 data class ScreeningInput(
@@ -36,13 +39,17 @@ object ScreeningEngine {
             return ScreeningOutcome.ALLOWED_OFF_HOURS
         }
         if (settings.silenceFailedVerification && input.verificationFailed) {
-            return ScreeningOutcome.SILENCED_SPOOF_SUSPECTED
+            return if (settings.rejectInsteadOfSilence) {
+                ScreeningOutcome.REJECTED_SPOOF_SUSPECTED
+            } else {
+                ScreeningOutcome.SILENCED_SPOOF_SUSPECTED
+            }
         }
         if (input.isContact) return ScreeningOutcome.ALLOWED_CONTACT
         if (input.isAllowlisted) return ScreeningOutcome.ALLOWED_ALLOWLIST
         if (settings.repeatBypassEnabled && input.hasRecentSilencedCall) {
             return ScreeningOutcome.ALLOWED_REPEAT
         }
-        return ScreeningOutcome.SILENCED
+        return if (settings.rejectInsteadOfSilence) ScreeningOutcome.REJECTED else ScreeningOutcome.SILENCED
     }
 }

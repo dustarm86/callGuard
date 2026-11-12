@@ -1,5 +1,6 @@
 package com.dustin.callguard.ui
 
+import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,15 +32,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.dustin.callguard.data.AllowedNumber
+import com.dustin.callguard.data.AllowedPrefix
 import com.dustin.callguard.screening.NumberNormalizer
+import com.dustin.callguard.screening.PrefixNormalizer
 
 @Composable
 fun AllowlistScreen(
     allowedNumbers: List<AllowedNumber>,
+    allowedPrefixes: List<AllowedPrefix>,
     onAdd: (rawNumber: String, label: String) -> Boolean,
+    onAddPrefix: (rawPrefix: String, label: String) -> Boolean,
     onRemove: (normalizedNumber: String) -> Unit,
+    onRemovePrefix: (prefix: String) -> Unit,
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
+    var showAddPrefixDialog by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -50,12 +57,18 @@ fun AllowlistScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = "${allowedNumbers.size} allowed",
+                text = "${allowedNumbers.size + allowedPrefixes.size} allowed",
                 style = MaterialTheme.typography.titleMedium,
             )
-            OutlinedButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Text("add number", modifier = Modifier.padding(start = 8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { showAddDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Text("number", modifier = Modifier.padding(start = 4.dp))
+                }
+                OutlinedButton(onClick = { showAddPrefixDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Text("prefix", modifier = Modifier.padding(start = 4.dp))
+                }
             }
         }
 
@@ -79,6 +92,17 @@ fun AllowlistScreen(
                             text = NumberNormalizer.format(allowedNumber.normalizedNumber),
                             style = MaterialTheme.typography.titleMedium,
                         )
+                        allowedNumber.expiresAt?.let { expiresAt ->
+                            Text(
+                                text = "allowed until " + DateUtils.getRelativeTimeSpanString(
+                                    expiresAt,
+                                    System.currentTimeMillis(),
+                                    DateUtils.MINUTE_IN_MILLIS,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                         if (allowedNumber.label.isNotBlank()) {
                             Text(
                                 text = allowedNumber.label,
@@ -93,7 +117,42 @@ fun AllowlistScreen(
                 }
                 HorizontalDivider()
             }
+            items(allowedPrefixes, key = { "prefix-" + it.prefix }) { allowedPrefix ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = PrefixNormalizer.format(allowedPrefix.prefix),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = if (allowedPrefix.label.isNotBlank()) "number block · ${allowedPrefix.label}" else "number block",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = { onRemovePrefix(allowedPrefix.prefix) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "remove")
+                    }
+                }
+                HorizontalDivider()
+            }
         }
+    }
+
+    if (showAddPrefixDialog) {
+        AddPrefixDialog(
+            onDismiss = { showAddPrefixDialog = false },
+            onConfirm = { rawPrefix, label ->
+                val wasAdded = onAddPrefix(rawPrefix, label)
+                if (wasAdded) showAddPrefixDialog = false
+                wasAdded
+            },
+        )
     }
 
     if (showAddDialog) {
@@ -149,6 +208,58 @@ private fun AddNumberDialog(
         confirmButton = {
             TextButton(onClick = {
                 if (!onConfirm(rawNumber, label)) hasError = true
+            }) { Text("add") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("cancel") }
+        },
+    )
+}
+
+@Composable
+private fun AddPrefixDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (rawPrefix: String, label: String) -> Boolean,
+) {
+    var rawPrefix by remember { mutableStateOf("") }
+    var label by remember { mutableStateOf("") }
+    var hasError by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("allow a number block") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "every number that starts with these digits will ring, including spoofed calls that copy the block. use it only for a business you trust.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                OutlinedTextField(
+                    value = rawPrefix,
+                    onValueChange = {
+                        rawPrefix = it
+                        hasError = false
+                    },
+                    label = { Text("first 8 or 9 digits") },
+                    isError = hasError,
+                    supportingText = {
+                        Text(if (hasError) "enter 8 or 9 digits, like 315 555 01" else "for example 315 555 01 allows (315) 555-0100 to 0199")
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                )
+                OutlinedTextField(
+                    value = label,
+                    onValueChange = { label = it },
+                    label = { Text("label (optional)") },
+                    singleLine = true,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (!onConfirm(rawPrefix, label)) hasError = true
             }) { Text("add") }
         },
         dismissButton = {

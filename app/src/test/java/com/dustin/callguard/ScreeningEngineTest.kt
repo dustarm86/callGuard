@@ -112,4 +112,35 @@ class ScreeningEngineTest {
             ScreeningEngine.decide(input(isContact = true, verificationFailed = true, settings = settings)),
         )
     }
+
+    @Test
+    fun rejectModeRejectsUnknownNumbers() {
+        val settings = ScreenerSettings(rejectInsteadOfSilence = true)
+        val outcome = ScreeningEngine.decide(input(settings = settings))
+        assertEquals(ScreeningOutcome.REJECTED, outcome)
+        assertEquals(true, outcome.rejectsCall)
+    }
+
+    @Test
+    fun rejectModeRejectsFailedVerification() {
+        val settings = ScreenerSettings(rejectInsteadOfSilence = true)
+        assertEquals(
+            ScreeningOutcome.REJECTED_SPOOF_SUSPECTED,
+            ScreeningEngine.decide(input(verificationFailed = true, settings = settings)),
+        )
+    }
+
+    @Test
+    fun rejectModeStillRingsContacts() {
+        val settings = ScreenerSettings(rejectInsteadOfSilence = true)
+        assertEquals(
+            ScreeningOutcome.ALLOWED_CONTACT,
+            ScreeningEngine.decide(input(isContact = true, settings = settings)),
+        )
+    }
+
+    @Test
+    fun silenceModeNeverRejects() {
+        assertEquals(false, ScreeningEngine.decide(input()).rejectsCall)
+    }
 }

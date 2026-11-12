@@ -1,6 +1,7 @@
 package com.dustin.callguard.ui
 
 import android.text.format.DateUtils
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,14 +18,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.dustin.callguard.data.NumberInfo
 import com.dustin.callguard.data.ScreenedCall
+import com.dustin.callguard.screening.AreaCodes
 import com.dustin.callguard.screening.NumberNormalizer
 import com.dustin.callguard.screening.ScreeningOutcome
+import com.dustin.callguard.screening.SuspicionLevel
+import com.dustin.callguard.screening.SuspicionResult
 
 @Composable
 fun LogScreen(
     calls: List<ScreenedCall>,
     allowedNormalizedNumbers: Set<String>,
+    numberInfo: Map<String, NumberInfo>,
+    suspicionFor: (String) -> SuspicionResult,
+    onOpen: (ScreenedCall) -> Unit,
     onAllow: (ScreenedCall) -> Unit,
     onClear: () -> Unit,
 ) {
@@ -65,6 +73,7 @@ fun LogScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable(enabled = call.normalizedNumber != null) { onOpen(call) }
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -87,6 +96,20 @@ fun LogScreen(
                                 MaterialTheme.colorScheme.primary
                             },
                         )
+                        val extraLine = listOfNotNull(
+                            AreaCodes.lookup(call.normalizedNumber),
+                            tagLabel(call.normalizedNumber?.let { numberInfo[it]?.tag }),
+                            call.normalizedNumber?.let { suspicionFor(it) }
+                                ?.takeIf { it.level != SuspicionLevel.LOW }
+                                ?.let { "suspicion ${it.level.label}" },
+                        ).joinToString(" · ")
+                        if (extraLine.isNotEmpty()) {
+                            Text(
+                                text = extraLine,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     if (canAllow) {
                         TextButton(onClick = { onAllow(call) }) { Text("allow") }

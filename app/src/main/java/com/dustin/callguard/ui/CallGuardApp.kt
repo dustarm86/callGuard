@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Settings
@@ -27,10 +28,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,20 +42,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.dustin.callguard.data.VerificationStatus
+import com.dustin.callguard.screening.NanpValidator
+import com.dustin.callguard.screening.SuspicionInput
+import com.dustin.callguard.screening.SuspicionResult
+import com.dustin.callguard.screening.SuspicionScorer
+import com.dustin.callguard.trends.ReportBuilder
+import com.dustin.callguard.trends.TrendAnalyzer
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun CallGuardTheme(content: @Composable () -> Unit) {
+fun CallGuardTheme(useSystemColors: Boolean = false, content: @Composable () -> Unit) {
     val darkTheme = isSystemInDarkTheme()
     val context = LocalContext.current
     val colorScheme = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+        useSystemColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        darkTheme -> darkColorScheme()
-        else -> lightColorScheme()
+        darkTheme -> CallGuardDarkColors
+        else -> CallGuardLightColors
     }
-    MaterialTheme(colorScheme = colorScheme, content = content)
+    MaterialTheme(colorScheme = colorScheme, typography = CallGuardTypography, content = content)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,6 +86,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
 
     LifecycleResumeEffect(Unit) {
         refreshStatus()
+        viewModel.reloadSettings()
         onPauseOrDispose { }
     }
 
@@ -90,7 +99,43 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
 
     val settings by viewModel.settings.collectAsState()
     val allowedNumbers by viewModel.allowedNumbers.collectAsState()
+    val allowedPrefixes by viewModel.allowedPrefixes.collectAsState()
+    // entries past their expiry no longer count, even before the cleanup removes them
+    val activeAllowedNumbers = allowedNumbers.filter { entry ->
+        val expiresAt = entry.expiresAt
+        expiresAt == null || expiresAt > System.currentTimeMillis()
+    }
     val screenedCalls by viewModel.screenedCalls.collectAsState()
+    val numberInfo by viewModel.numberInfo.collectAsState()
+    val allCalls by viewModel.allCalls.collectAsState()
+    val trends = remember(allCalls, settings.ownNumber) {
+        TrendAnalyzer.analyze(allCalls, ZoneId.systemDefault(), settings.ownNumber)
+    }
+    var openedNumber by rememberSaveable { mutableStateOf<String?>(null) }
+    var showSimulator by rememberSaveable { mutableStateOf(false) }
+    val callCounts = remember(screenedCalls) { screenedCalls.groupingBy { it.normalizedNumber }.eachCount() }
+    val failedVerificationNumbers = remember(screenedCalls) {
+        screenedCalls
+            .filter { it.verificationStatus == VerificationStatus.FAILED }
+            .mapNotNull { it.normalizedNumber }
+            .toSet()
+    }
+    val rawByNumber = remember(screenedCalls) {
+        screenedCalls.mapNotNull { call -> call.normalizedNumber?.let { it to call.rawNumber } }.toMap()
+    }
+    val suspicionFor: (String) -> SuspicionResult = { number ->
+        SuspicionScorer.score(
+            SuspicionInput(
+                normalizedNumber = number,
+                callCount = callCounts[number] ?: 0,
+                verificationFailed = number in failedVerificationNumbers,
+                ownNumber = settings.ownNumber,
+                allowedNumbers = allowedNumbers.map { it.normalizedNumber },
+                tag = numberInfo[number]?.tag,
+                nanpProblems = NanpValidator.problems(rawByNumber[number], number),
+            )
+        )
+    }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     Scaffold(
@@ -112,6 +157,12 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                 NavigationBarItem(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
+                    icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                    label = { Text("trends") },
+                )
+                NavigationBarItem(
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 },
                     icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                     label = { Text("settings") },
                 )
@@ -123,9 +174,10 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                 .padding(innerPadding)
                 .fillMaxSize(),
         ) {
-            StatusCard(
+            if (openedNumber == null) StatusCard(
                 isRoleHeld = isRoleHeld,
                 hasContactsPermission = hasContactsPermission,
+                screeningEnabled = settings.screeningEnabled,
                 onRequestRole = {
                     val roleManager = context.getSystemService(RoleManager::class.java)
                     if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)) {
@@ -138,21 +190,70 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
             )
 
             when (selectedTab) {
-                0 -> LogScreen(
-                    calls = screenedCalls,
-                    allowedNormalizedNumbers = allowedNumbers.map { it.normalizedNumber }.toSet(),
-                    onAllow = { call -> viewModel.addAllowedNumber(call.rawNumber.orEmpty(), "") },
-                    onClear = viewModel::clearLog,
-                )
+                0 -> {
+                    val allowedSet = activeAllowedNumbers.map { it.normalizedNumber }.toSet()
+                    val opened = openedNumber
+                    if (opened != null) {
+                        CallDetailScreen(
+                            normalizedNumber = opened,
+                            calls = screenedCalls,
+                            info = numberInfo[opened],
+                            isAllowed = opened in allowedSet,
+                            suspicion = suspicionFor(opened),
+                            onSave = { note, tag -> viewModel.saveNumberInfo(opened, note, tag) },
+                            onAllowTemporarily = { viewModel.allowTemporarily(opened, 24L * 60 * 60 * 1000) },
+                            onToggleAllow = {
+                                if (opened in allowedSet) {
+                                    viewModel.removeAllowedNumber(opened)
+                                } else {
+                                    viewModel.addAllowedNumber(opened, "")
+                                }
+                            },
+                            onBack = { openedNumber = null },
+                        )
+                    } else {
+                        LogScreen(
+                            calls = screenedCalls,
+                            allowedNormalizedNumbers = allowedSet,
+                            numberInfo = numberInfo,
+                            suspicionFor = suspicionFor,
+                            onOpen = { call -> openedNumber = call.normalizedNumber },
+                            onAllow = { call -> viewModel.addAllowedNumber(call.rawNumber.orEmpty(), "") },
+                            onClear = viewModel::clearLog,
+                        )
+                    }
+                }
                 1 -> AllowlistScreen(
-                    allowedNumbers = allowedNumbers,
+                    allowedNumbers = activeAllowedNumbers,
+                    allowedPrefixes = allowedPrefixes,
                     onAdd = viewModel::addAllowedNumber,
+                    onAddPrefix = viewModel::addAllowedPrefix,
                     onRemove = viewModel::removeAllowedNumber,
+                    onRemovePrefix = viewModel::removeAllowedPrefix,
                 )
-                else -> SettingsScreen(
-                    settings = settings,
-                    onChange = viewModel::updateSettings,
+                2 -> TrendsScreen(
+                    trends = trends,
+                    hasOwnNumber = settings.ownNumber.isNotBlank(),
+                    onExportCsv = { ExportShare.shareCsv(context, allCalls) },
+                    onExportReport = {
+                        val html = ReportBuilder.build(allCalls, numberInfo, ZoneId.systemDefault(), ZonedDateTime.now())
+                        ExportShare.shareReport(context, html)
+                    },
                 )
+                else -> if (showSimulator) {
+                    SimulatorScreen(
+                        settings = settings,
+                        allowedNumbers = activeAllowedNumbers,
+                        allowedPrefixes = allowedPrefixes,
+                        onBack = { showSimulator = false },
+                    )
+                } else {
+                    SettingsScreen(
+                        settings = settings,
+                        onChange = viewModel::updateSettings,
+                        onOpenSimulator = { showSimulator = true },
+                    )
+                }
             }
         }
     }
@@ -162,17 +263,21 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
 private fun StatusCard(
     isRoleHeld: Boolean,
     hasContactsPermission: Boolean,
+    screeningEnabled: Boolean,
     onRequestRole: () -> Unit,
     onRequestContacts: () -> Unit,
 ) {
     val isReady = isRoleHeld && hasContactsPermission
+    val isPaused = isReady && !screeningEnabled
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isReady) {
+            containerColor = if (isPaused) {
                 MaterialTheme.colorScheme.secondaryContainer
+            } else if (isReady) {
+                MaterialTheme.colorScheme.primaryContainer
             } else {
                 MaterialTheme.colorScheme.errorContainer
             }
@@ -182,7 +287,10 @@ private fun StatusCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (isReady) {
+            if (isPaused) {
+                Text("paused: every call rings", style = MaterialTheme.typography.titleSmall)
+                Text("the screening switch is off. turn it back on in settings or with the callGuard quick settings tile.")
+            } else if (isReady) {
                 Text("active: unknown callers are silenced", style = MaterialTheme.typography.titleSmall)
             } else {
                 Text("not screening yet", style = MaterialTheme.typography.titleSmall)
