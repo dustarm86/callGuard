@@ -28,6 +28,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _settings = MutableStateFlow(settingsStore.load())
 
+    // keeps the screens in step with changes made elsewhere, like the quick settings tile
+    private val settingsListener = settingsStore.registerChangeListener {
+        _settings.value = settingsStore.load()
+    }
+
     init {
         // WorkManager keeps queued runs across restarts; this just makes sure they match the settings
         DigestScheduler.reschedule(application)
@@ -65,6 +70,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .observeAll()
         .map { list -> list.associateBy { it.normalizedNumber } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    override fun onCleared() {
+        settingsStore.unregisterChangeListener(settingsListener)
+        super.onCleared()
+    }
 
     fun updateSettings(transform: (ScreenerSettings) -> ScreenerSettings) {
         val previous = _settings.value

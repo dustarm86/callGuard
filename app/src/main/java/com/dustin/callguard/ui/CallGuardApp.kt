@@ -178,6 +178,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
             if (openedNumber == null) StatusCard(
                 isRoleHeld = isRoleHeld,
                 hasContactsPermission = hasContactsPermission,
+                screeningEnabled = settings.screeningEnabled,
                 onRequestRole = {
                     val roleManager = context.getSystemService(RoleManager::class.java)
                     if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)) {
@@ -253,16 +254,20 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
 private fun StatusCard(
     isRoleHeld: Boolean,
     hasContactsPermission: Boolean,
+    screeningEnabled: Boolean,
     onRequestRole: () -> Unit,
     onRequestContacts: () -> Unit,
 ) {
     val isReady = isRoleHeld && hasContactsPermission
+    val isPaused = isReady && !screeningEnabled
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isReady) {
+            containerColor = if (isPaused) {
+                MaterialTheme.colorScheme.tertiaryContainer
+            } else if (isReady) {
                 MaterialTheme.colorScheme.secondaryContainer
             } else {
                 MaterialTheme.colorScheme.errorContainer
@@ -273,7 +278,10 @@ private fun StatusCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (isReady) {
+            if (isPaused) {
+                Text("paused: every call rings", style = MaterialTheme.typography.titleSmall)
+                Text("the screening switch is off. turn it back on in settings or with the callGuard quick settings tile.")
+            } else if (isReady) {
                 Text("active: unknown callers are silenced", style = MaterialTheme.typography.titleSmall)
             } else {
                 Text("not screening yet", style = MaterialTheme.typography.titleSmall)

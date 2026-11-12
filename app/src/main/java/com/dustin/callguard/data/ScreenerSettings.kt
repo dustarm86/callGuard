@@ -1,6 +1,7 @@
 package com.dustin.callguard.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import java.time.DayOfWeek
 import java.time.LocalDateTime
 
@@ -67,6 +68,21 @@ class ScreenerSettingsStore(context: Context) {
             weeklyDigestMinutes = prefs.getInt(KEY_WEEKLY_TIME, defaults.weeklyDigestMinutes),
             skipDigestWhenZero = prefs.getBoolean(KEY_SKIP_ZERO, defaults.skipDigestWhenZero),
         )
+    }
+
+    /**
+     * calls [onChange] whenever settings are saved anywhere in the app, including the quick settings
+     * tile. the returned listener must be kept (prefs only hold it weakly) and passed to
+     * [unregisterChangeListener] when done.
+     */
+    fun registerChangeListener(onChange: () -> Unit): SharedPreferences.OnSharedPreferenceChangeListener {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> onChange() }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        return listener
+    }
+
+    fun unregisterChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
+        prefs.unregisterOnSharedPreferenceChangeListener(listener)
     }
 
     fun save(settings: ScreenerSettings) {

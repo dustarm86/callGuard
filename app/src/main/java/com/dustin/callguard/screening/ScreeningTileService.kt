@@ -2,6 +2,7 @@ package com.dustin.callguard.screening
 
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import android.widget.Toast
 import com.dustin.callguard.data.ScreenerSettingsStore
 
 /** quick settings tile that flips the master screening switch without opening the app. */
@@ -16,8 +17,15 @@ class ScreeningTileService : TileService() {
         super.onClick()
         val store = ScreenerSettingsStore(applicationContext)
         val settings = store.load()
-        store.save(settings.copy(screeningEnabled = !settings.screeningEnabled))
+        val nowEnabled = !settings.screeningEnabled
+        store.save(settings.copy(screeningEnabled = nowEnabled))
         refreshTile()
+        val message = if (nowEnabled) {
+            "callGuard: screening on, unknown callers are silenced"
+        } else {
+            "callGuard: screening off, every call will ring"
+        }
+        Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
     }
 
     private fun refreshTile() {
