@@ -64,7 +64,7 @@ fun CallGuardTheme(useSystemColors: Boolean = false, content: @Composable () -> 
         darkTheme -> CallGuardDarkColors
         else -> CallGuardLightColors
     }
-    MaterialTheme(colorScheme = colorScheme, content = content)
+    MaterialTheme(colorScheme = colorScheme, typography = CallGuardTypography, content = content)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
