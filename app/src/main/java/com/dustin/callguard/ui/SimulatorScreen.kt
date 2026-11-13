@@ -185,6 +185,7 @@ fun SimulatorScreen(
             ownNumber = settings.ownNumber,
             complaints = complaints,
             contactNumbers = contactNumbers,
+            lineLookupKey = settings.lineLookupKey,
         )
 
         ComplaintPanel(

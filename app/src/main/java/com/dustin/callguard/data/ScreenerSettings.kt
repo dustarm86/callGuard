@@ -31,6 +31,8 @@ data class ScreenerSettings(
     val useSystemColors: Boolean = false,
     // on = always use the dark look; off = follow the phone's light or dark setting
     val alwaysDark: Boolean = true,
+    // the person's own veriphone api key for the optional line type lookup; blank turns the lookup off
+    val lineLookupKey: String = "",
 ) {
     fun isWorkDay(day: DayOfWeek): Boolean =
         (workDaysMask and (1 shl (day.value - 1))) != 0
@@ -76,6 +78,7 @@ class ScreenerSettingsStore(context: Context) {
             rejectInsteadOfSilence = prefs.getBoolean(KEY_REJECT, defaults.rejectInsteadOfSilence),
             useSystemColors = prefs.getBoolean(KEY_SYSTEM_COLORS, defaults.useSystemColors),
             alwaysDark = prefs.getBoolean(KEY_ALWAYS_DARK, defaults.alwaysDark),
+            lineLookupKey = prefs.getString(KEY_LINE_KEY, defaults.lineLookupKey).orEmpty(),
         )
     }
 
@@ -115,10 +118,12 @@ class ScreenerSettingsStore(context: Context) {
             .putBoolean(KEY_REJECT, settings.rejectInsteadOfSilence)
             .putBoolean(KEY_SYSTEM_COLORS, settings.useSystemColors)
             .putBoolean(KEY_ALWAYS_DARK, settings.alwaysDark)
+            .putString(KEY_LINE_KEY, settings.lineLookupKey)
             .apply()
     }
 
     private companion object {
+        const val KEY_LINE_KEY = "lineLookupKey"
         const val KEY_ENABLED = "screeningEnabled"
         const val KEY_WORK_HOURS_ONLY = "workHoursOnly"
         const val KEY_WORK_START = "workStartMinutes"

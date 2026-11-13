@@ -54,6 +54,8 @@ dependencies {
     ksp("androidx.room:room-compiler:$roomVersion")
 
     testImplementation("junit:junit:4.13.2")
+    // android's own org.json is a stub in unit tests, so tests use the real one
+    testImplementation("org.json:json:20240303")
 }
 
 // unit tests: always run, list every test with pass/fail, and finish with a one-line total

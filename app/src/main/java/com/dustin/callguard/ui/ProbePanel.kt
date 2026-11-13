@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import com.dustin.callguard.dns.EnumLookup
+import com.dustin.callguard.lookup.LineLookupClient
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +46,7 @@ fun ProbePanel(
     ownNumber: String,
     complaints: ComplaintIndex?,
     contactNumbers: Collection<String>,
+    lineLookupKey: String,
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     val recent = remember(calls) {
@@ -56,6 +58,9 @@ fun ProbePanel(
     var enumFor by remember { mutableStateOf<String?>(null) }
     var enumLines by remember { mutableStateOf<List<String>>(emptyList()) }
     var enumBusy by remember { mutableStateOf(false) }
+    var lineFor by remember { mutableStateOf<String?>(null) }
+    var lineLines by remember { mutableStateOf<List<String>>(emptyList()) }
+    var lineBusy by remember { mutableStateOf(false) }
 
     SectionCard(
         title = "probe a number",
@@ -132,6 +137,42 @@ fun ProbePanel(
                             Column {
                                 enumLines.forEach { line ->
                                     Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (probed != null && probed.length == 10) {
+                ResultBlock(
+                    title = "line type (online lookup)",
+                    lines = listOf(
+                        if (lineLookupKey.isBlank()) {
+                            "off: add your own veriphone api key in settings (line type lookup) to turn this on. it asks an online database whether the number is mobile, landline or internet phone, and who the carrier is."
+                        } else {
+                            "sends this number and your api key to veriphone.io, only when you tap. it never contacts the number. each tap uses one lookup from your monthly quota."
+                        },
+                    ),
+                ) {
+                    if (lineLookupKey.isNotBlank()) {
+                        OutlinedButton(
+                            enabled = !lineBusy,
+                            onClick = {
+                                lineBusy = true
+                                scope.launch {
+                                    lineLines = LineLookupClient.query(probed, lineLookupKey)
+                                    lineFor = probed
+                                    lineBusy = false
+                                }
+                            },
+                        ) { Text(if (lineBusy) "asking…" else "look up line type") }
+                        if (lineFor == probed) {
+                            SelectionContainer {
+                                Column {
+                                    lineLines.forEach { line ->
+                                        Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                 }
                             }
                         }

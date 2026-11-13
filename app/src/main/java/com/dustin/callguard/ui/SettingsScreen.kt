@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.dustin.callguard.data.ScreenerSettings
 import com.dustin.callguard.digest.DigestNotifier
@@ -147,6 +148,20 @@ fun SettingsScreen(
         }
         SectionCard(title = "summaries") {
             NotificationSettings(settings = settings, onChange = onChange)
+        }
+        SectionCard(
+            title = "line type lookup",
+            about = "optional. the probe can ask veriphone.io whether a number is mobile, landline or internet phone, and who the carrier is. you need your own key: make a free account at veriphone.io (their site says 1,000 lookups a month are free). the key stays on this phone, and nothing is sent until you tap the lookup button in the probe.",
+        ) {
+            OutlinedTextField(
+                value = settings.lineLookupKey,
+                onValueChange = { typed -> onChange { it.copy(lineLookupKey = typed.trim()) } },
+                label = { Text("veriphone api key") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
         SectionCard(title = "appearance") {
             SwitchRow(
