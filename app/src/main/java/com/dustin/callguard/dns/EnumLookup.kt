@@ -40,8 +40,10 @@ object EnumLookup {
         // many routers drop or mangle naptr queries, so ask a public resolver over https as a second opinion
         return try {
             val packet = withContext(Dispatchers.IO) { httpsQuery(name) }
-            listOf("your phone's dns resolver didn't answer ($systemFailure), so cloudflare's public resolver was asked over https instead") +
-                EnumDns.describe(name, EnumDns.parse(packet))
+            val lines = EnumDns.describe(name, EnumDns.parse(packet))
+            // verdict first, then the routine detail about which resolver answered
+            listOf(lines.first()) + lines.drop(1) +
+                "answered by cloudflare over https. your phone's own resolver didn't reply ($systemFailure), which is common on home networks"
         } catch (e: Exception) {
             EnumDns.couldntCheck(
                 "asked dns for naptr records at $name",
