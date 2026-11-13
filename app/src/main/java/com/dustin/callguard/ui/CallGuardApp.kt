@@ -106,6 +106,9 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
 
     val settings by viewModel.settings.collectAsState()
     val directory by viewModel.directory.collectAsState()
+    val complaints by viewModel.complaints.collectAsState()
+    val complaintStatus by viewModel.complaintStatus.collectAsState()
+    val complaintsRefreshing by viewModel.complaintsRefreshing.collectAsState()
     val allowedNumbers by viewModel.allowedNumbers.collectAsState()
     val allowedPrefixes by viewModel.allowedPrefixes.collectAsState()
     // entries past their expiry no longer count, even before the cleanup removes them
@@ -153,6 +156,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                 tag = numberInfo[number]?.tag,
                 nanpProblems = NanpValidator.problems(rawByNumber[number], number),
                 blockStatus = directory?.lookup(number)?.status ?: BlockStatus.UNKNOWN,
+                complaintCount = complaints?.lookup(number)?.count ?: 0,
             )
         )
     }
@@ -279,6 +283,10 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                     diagnosticsHeader = diagnosticsLines,
                     directory = directory,
                     calls = allCalls,
+                    complaints = complaints,
+                    complaintStatus = complaintStatus,
+                    complaintsRefreshing = complaintsRefreshing,
+                    onRefreshComplaints = viewModel::refreshComplaints,
                 )
                 else -> SettingsScreen(
                     settings = settings,

@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.dustin.callguard.complaints.ComplaintIndex
 import com.dustin.callguard.data.AllowedNumber
 import com.dustin.callguard.data.AllowedPrefix
 import com.dustin.callguard.data.ScreenedCall
@@ -54,6 +55,10 @@ fun SimulatorScreen(
     diagnosticsHeader: List<String>,
     directory: NxxDirectory?,
     calls: List<ScreenedCall>,
+    complaints: ComplaintIndex?,
+    complaintStatus: String,
+    complaintsRefreshing: Boolean,
+    onRefreshComplaints: () -> Unit,
 ) {
 
     var numberText by rememberSaveable { mutableStateOf("") }
@@ -177,6 +182,14 @@ fun SimulatorScreen(
             calls = calls,
             allowedNumbers = allowedNumbers,
             ownNumber = settings.ownNumber,
+            complaints = complaints,
+        )
+
+        ComplaintPanel(
+            index = complaints,
+            status = complaintStatus,
+            refreshing = complaintsRefreshing,
+            onRefresh = onRefreshComplaints,
         )
 
         DiagnosticsPanel(diagnosticsHeader)

@@ -74,4 +74,41 @@ class NumberProbeTest {
         val relation = lines(probe("3152001234", own = "3152005678"), "relationship to you")
         assertTrue(relation.first().contains("neighbor spoofing"))
     }
+
+    private fun complaintIndex() = com.dustin.callguard.complaints.ComplaintIndex.Builder().apply {
+        add(com.dustin.callguard.complaints.ComplaintReport("3152001234", "2026-11-11", true, "Warranties"))
+        add(com.dustin.callguard.complaints.ComplaintReport("3152001234", "2026-11-10", true, "Warranties"))
+    }.build(dayCount = 5)
+
+    @Test
+    fun reportedNumbersShowComplaintsAndRaiseTheScore() {
+        val withData = NumberProbe.run(ProbeInput("3152001234", directory, null, emptyList(), emptyList(), zone, complaintIndex()))
+        val lines = lines(withData, "public complaints")
+        assertTrue(lines.first().startsWith("2 reports"))
+        assertTrue(lines.any { it.contains("unverified") })
+        val without = probe("3152001234")
+        assertEquals((without.suspicion?.score ?: 0) + 20, withData.suspicion?.score)
+    }
+
+    @Test
+    fun missingComplaintDataSaysHowToGetIt() {
+        assertTrue(lines(probe("3152001234"), "public complaints").first().startsWith("no complaint data yet"))
+    }
+
+    @Test
+    fun numbersAbsentFromComplaintDataAreReportedAsSuch() {
+        val result = NumberProbe.run(ProbeInput("3152009999", directory, null, emptyList(), emptyList(), zone, complaintIndex()))
+        assertTrue(lines(result, "public complaints").first().startsWith("no reports of this number in the last 5 days"))
+    }
+
+    @Test
+    fun partiallyTypedNumbersDoNotCrash() {
+        // the probe re-runs on every keystroke, so every prefix of a number must be safe
+        val full = "8338083984"
+        for (length in 1..full.length) {
+            val result = probe(full.take(length))
+            assertTrue("no sections for ${full.take(length)}", result.sections.isNotEmpty())
+        }
+        assertTrue(lines(probe("833"), "carrier block").first().startsWith("no data for this area code"))
+    }
 }

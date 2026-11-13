@@ -1,5 +1,6 @@
 package com.dustin.callguard.screening
 
+import com.dustin.callguard.complaints.ComplaintIndex
 import com.dustin.callguard.data.ScreenedCall
 import com.dustin.callguard.data.VerificationStatus
 import java.time.Instant
@@ -19,6 +20,7 @@ data class ProbeInput(
     val allowedNumbers: List<String>,
     val calls: List<ScreenedCall>,
     val zone: ZoneId,
+    val complaints: ComplaintIndex? = null,
 )
 
 /**
@@ -50,6 +52,9 @@ object NumberProbe {
         val block = input.directory?.lookup(number)
         sections += ProbeSection("carrier block", blockLines(number, input.directory, block))
 
+        val reported = input.complaints?.lookup(number)
+        sections += ProbeSection("public complaints", complaintLines(input.complaints, reported))
+
         val matching = input.calls.filter { it.normalizedNumber == number }
         sections += ProbeSection("your history", historyLines(number, matching, input.calls, input.zone))
 
@@ -66,6 +71,7 @@ object NumberProbe {
                 tag = null,
                 nanpProblems = problems,
                 blockStatus = block?.status ?: BlockStatus.UNKNOWN,
+                complaintCount = reported?.count ?: 0,
             )
         )
         return ProbeResult(sections, suspicion)
@@ -75,7 +81,8 @@ object NumberProbe {
         if (directory == null || block == null) {
             return listOf("carrier data isn't in this install (run tools/buildNanpaData.py, then rebuild the app)")
         }
-        val code = "${number.take(3)}-${number.substring(3, 6)}"
+        // short input (someone still typing) has no exchange yet, so there is no code to show
+        val code = if (number.length >= 6) "${number.take(3)}-${number.substring(3, 6)}" else number
         val lines = mutableListOf<String>()
         when (block.status) {
             BlockStatus.UNKNOWN -> lines += "no data for this area code: the nanpa file covers the us only, so canadian, caribbean and toll-free numbers aren't in it"
@@ -95,6 +102,22 @@ object NumberProbe {
         }
         val d = directory.asOf
         lines += "nanpa data as of %04d-%02d-%02d".format(d / 10000, d / 100 % 100, d % 100)
+        return lines
+    }
+
+    private fun complaintLines(index: ComplaintIndex?, stats: com.dustin.callguard.complaints.ComplaintStats?): List<String> {
+        if (index == null || index.reportCount == 0) {
+            return listOf("no complaint data yet: tap \"refresh complaint data\" in the tools tab to download the ftc's recent reports")
+        }
+        if (stats == null) {
+            return listOf("no reports of this number in the last ${index.dayCount} days of ftc data (newest ${index.newestDay})")
+        }
+        val lines = mutableListOf(
+            "${stats.count} ${if (stats.count == 1) "report" else "reports"} in the ftc's recent data, latest ${stats.lastDay}",
+        )
+        if (stats.robocalls > 0) lines += "${stats.robocalls} marked as recorded messages or robocalls"
+        lines += "reported as: " + stats.subjects.joinToString("; ") { "${it.first} (${it.second})" }
+        lines += "these are unverified consumer reports, and a spoofed number can belong to an innocent person"
         return lines
     }
 

@@ -28,6 +28,8 @@ data class SuspicionInput(
     val nanpProblems: List<String> = emptyList(),
     // what the nanpa carrier data says about the number's exchange; unknown adds nothing
     val blockStatus: BlockStatus = BlockStatus.UNKNOWN,
+    // how many consumer reports of this number are in the downloaded ftc data
+    val complaintCount: Int = 0,
 )
 
 /**
@@ -44,6 +46,9 @@ object SuspicionScorer {
     private const val UNASSIGNED_BLOCK_POINTS = 45
     private const val UNAVAILABLE_BLOCK_POINTS = 30
     private const val NOT_IN_SERVICE_POINTS = 25
+    private const val COMPLAINT_POINTS = 20
+    private const val MANY_COMPLAINTS_POINTS = 35
+    private const val MANY_COMPLAINTS_AT = 3
     private const val ALLOWED_NEIGHBOR_POINTS = 20
     private const val REPEAT_POINTS = 8
     private const val MANY_REPEATS_POINTS = 15
@@ -95,6 +100,16 @@ object SuspicionScorer {
                     reasons += "$code is assigned to a carrier but not in service yet"
                 }
                 else -> Unit
+            }
+        }
+
+        if (input.complaintCount > 0) {
+            if (input.complaintCount >= MANY_COMPLAINTS_AT) {
+                score += MANY_COMPLAINTS_POINTS
+                reasons += "reported as an unwanted caller ${input.complaintCount} times in recent ftc data"
+            } else {
+                score += COMPLAINT_POINTS
+                reasons += "reported as an unwanted caller ${input.complaintCount} ${if (input.complaintCount == 1) "time" else "times"} in recent ftc data"
             }
         }
 

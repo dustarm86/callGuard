@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.dustin.callguard.complaints.ComplaintIndex
 import com.dustin.callguard.data.AllowedNumber
 import com.dustin.callguard.data.ScreenedCall
 import com.dustin.callguard.screening.NumberNormalizer
@@ -37,6 +38,7 @@ fun ProbePanel(
     calls: List<ScreenedCall>,
     allowedNumbers: List<AllowedNumber>,
     ownNumber: String,
+    complaints: ComplaintIndex?,
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     val recent = remember(calls) {
@@ -79,6 +81,7 @@ fun ProbePanel(
                     allowedNumbers = allowedNumbers.map { it.normalizedNumber },
                     calls = calls,
                     zone = ZoneId.systemDefault(),
+                    complaints = complaints,
                 )
             )
             result.suspicion?.let { suspicion ->

@@ -4,6 +4,8 @@
 
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- only used by the manual "refresh complaint data" button, to download public ftc files -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- diagnostics only: android lets these be granted over adb, never by a prompt (see the tools tab) -->
     <uses-permission android:name="android.permission.DUMP" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.READ_LOGS" tools:ignore="ProtectedPermissions" />

@@ -110,4 +110,12 @@ class SuspicionScorerTest {
         val withBlock = impossible.copy(blockStatus = BlockStatus.UNASSIGNED)
         assertEquals(SuspicionScorer.score(impossible).score, SuspicionScorer.score(withBlock).score)
     }
+
+    @Test
+    fun complaintsRaiseTheScoreByHowManyThereAre() {
+        val plain = SuspicionScorer.score(input()).score
+        assertEquals(plain + 20, SuspicionScorer.score(input().copy(complaintCount = 1)).score)
+        assertEquals(plain + 20, SuspicionScorer.score(input().copy(complaintCount = 2)).score)
+        assertEquals(plain + 35, SuspicionScorer.score(input().copy(complaintCount = 3)).score)
+    }
 }

@@ -11,6 +11,9 @@ import com.dustin.callguard.data.NumberInfo
 import com.dustin.callguard.data.ScreenedCall
 import com.dustin.callguard.data.ScreenerSettings
 import com.dustin.callguard.data.ScreenerSettingsStore
+import com.dustin.callguard.complaints.ComplaintDownloader
+import com.dustin.callguard.complaints.ComplaintIndex
+import com.dustin.callguard.complaints.ComplaintStore
 import com.dustin.callguard.screening.NumberNormalizer
 import com.dustin.callguard.screening.NxxDirectory
 import com.dustin.callguard.screening.NxxDirectoryLoader
@@ -46,9 +49,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _directory = MutableStateFlow<NxxDirectory?>(null)
     val directory: StateFlow<NxxDirectory?> = _directory.asStateFlow()
 
-    // declared after the flow above so the flow exists before the loader can finish
+    private val complaintStore = ComplaintStore(application)
+    private val _complaints = MutableStateFlow<ComplaintIndex?>(null)
+    val complaints: StateFlow<ComplaintIndex?> = _complaints.asStateFlow()
+    private val _complaintStatus = MutableStateFlow("")
+    val complaintStatus: StateFlow<String> = _complaintStatus.asStateFlow()
+    private val _complaintsRefreshing = MutableStateFlow(false)
+    val complaintsRefreshing: StateFlow<Boolean> = _complaintsRefreshing.asStateFlow()
+
+    // declared after the flows above so they exist before the loaders can finish
     init {
         viewModelScope.launch(Dispatchers.IO) { _directory.value = NxxDirectoryLoader.load(application) }
+        viewModelScope.launch(Dispatchers.IO) { _complaints.value = complaintStore.loadIndex() }
+    }
+
+    /** downloads the ftc's recent daily files. only runs when the user taps the button. */
+    fun refreshComplaints() {
+        if (_complaintsRefreshing.value) return
+        _complaintsRefreshing.value = true
+        _complaintStatus.value = ""
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = ComplaintDownloader(complaintStore).refresh(java.time.LocalDate.now())
+            _complaints.value = complaintStore.loadIndex()
+            _complaintStatus.value = result.summary()
+            _complaintsRefreshing.value = false
+        }
     }
 
     private fun digestFields(settings: ScreenerSettings) = listOf(
