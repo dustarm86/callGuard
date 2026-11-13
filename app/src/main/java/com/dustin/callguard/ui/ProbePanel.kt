@@ -8,7 +8,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
+import com.dustin.callguard.data.ProbeHistory
+import com.dustin.callguard.data.ProbeHistoryStore
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -55,6 +64,16 @@ fun ProbePanel(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val historyStore = remember { ProbeHistoryStore(context) }
+    var history by remember { mutableStateOf(historyStore.load()) }
+    // a full number that stays in the box for a moment counts as probed; partial typing never does
+    LaunchedEffect(text) {
+        val number = NumberNormalizer.normalize(text)
+        if (number != null && EnumDns.name(number) != null) {
+            delay(1_500)
+            history = ProbeHistory.add(history, number).also(historyStore::save)
+        }
+    }
     var enumFor by remember { mutableStateOf<String?>(null) }
     var enumLines by remember { mutableStateOf<List<String>>(emptyList()) }
     var enumBusy by remember { mutableStateOf(false) }
@@ -74,8 +93,38 @@ fun ProbePanel(
             label = { Text("number to probe") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            // one tap empties the box, so there is no selecting and deleting by hand
+            trailingIcon = {
+                if (text.isNotEmpty()) {
+                    IconButton(onClick = { text = "" }) {
+                        Icon(Icons.Default.Clear, contentDescription = "clear the number")
+                    }
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
         )
+        if (history.isNotEmpty()) {
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(
+                    "probed before: tap one to probe it again",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = {
+                    history = emptyList()
+                    historyStore.save(history)
+                }) { Text("clear history") }
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+            ) {
+                history.forEach { number ->
+                    AssistChip(onClick = { text = number }, label = { Text(NumberNormalizer.format(number)) })
+                }
+            }
+        }
         if (recent.isNotEmpty()) {
             Text("or pick from your log", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(
