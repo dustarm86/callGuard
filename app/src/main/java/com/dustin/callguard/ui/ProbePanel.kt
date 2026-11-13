@@ -14,8 +14,9 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.LaunchedEffect
-import kotlinx.coroutines.delay
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material3.Button
+import androidx.compose.ui.text.input.ImeAction
 import com.dustin.callguard.data.ProbeHistory
 import com.dustin.callguard.data.ProbeHistoryStore
 import androidx.compose.material3.MaterialTheme
@@ -66,11 +67,12 @@ fun ProbePanel(
     val scope = rememberCoroutineScope()
     val historyStore = remember { ProbeHistoryStore(context) }
     var history by remember { mutableStateOf(historyStore.load()) }
-    // a full number that stays in the box for a moment counts as probed; partial typing never does
-    LaunchedEffect(text) {
+    // results are for the text that was probed, so typing never starts a probe or lands in the history
+    var probedText by rememberSaveable { mutableStateOf("") }
+    val runProbe = {
+        probedText = text
         val number = NumberNormalizer.normalize(text)
         if (number != null && EnumDns.name(number) != null) {
-            delay(1_500)
             history = ProbeHistory.add(history, number).also(historyStore::save)
         }
     }
@@ -92,7 +94,8 @@ fun ProbePanel(
             onValueChange = { text = it },
             label = { Text("number to probe") },
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { if (text.isNotBlank()) runProbe() }),
             // one tap empties the box, so there is no selecting and deleting by hand
             trailingIcon = {
                 if (text.isNotEmpty()) {
@@ -103,10 +106,15 @@ fun ProbePanel(
             },
             modifier = Modifier.fillMaxWidth(),
         )
+        Button(
+            onClick = { runProbe() },
+            enabled = text.isNotBlank(),
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("probe") }
         if (history.isNotEmpty()) {
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Text(
-                    "probed before: tap one to probe it again",
+                    "probed before: tap one to fill the box, then probe",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
@@ -137,10 +145,15 @@ fun ProbePanel(
             }
         }
 
-        if (text.isNotBlank()) {
+        if (probedText.isNotBlank()) {
+            Text(
+                "results for $probedText" + if (probedText != text) " (the box has changed: tap probe to update)" else "",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             val result = NumberProbe.run(
                 ProbeInput(
-                    rawText = text,
+                    rawText = probedText,
                     directory = directory,
                     ownNumber = ownNumber,
                     allowedNumbers = allowedNumbers.map { it.normalizedNumber },
@@ -162,7 +175,7 @@ fun ProbePanel(
                 }
             }
 
-            val probed = NumberNormalizer.normalize(text)
+            val probed = NumberNormalizer.normalize(probedText)
             if (probed != null && EnumDns.name(probed) != null) {
                 ResultBlock(
                     title = "enum (public dns)",
