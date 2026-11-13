@@ -28,11 +28,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.dustin.callguard.data.AllowedNumber
 import com.dustin.callguard.data.AllowedPrefix
+import com.dustin.callguard.data.ScreenedCall
 import com.dustin.callguard.data.ScreenerSettings
 import com.dustin.callguard.screening.AllowlistMatcher
 import com.dustin.callguard.screening.AreaCodes
+import com.dustin.callguard.screening.BlockStatus
 import com.dustin.callguard.screening.NanpValidator
 import com.dustin.callguard.screening.NumberNormalizer
+import com.dustin.callguard.screening.NxxDirectory
 import com.dustin.callguard.screening.ScreeningEngine
 import com.dustin.callguard.screening.ScreeningInput
 import com.dustin.callguard.screening.SuspicionInput
@@ -49,6 +52,8 @@ fun SimulatorScreen(
     allowedNumbers: List<AllowedNumber>,
     allowedPrefixes: List<AllowedPrefix>,
     diagnosticsHeader: List<String>,
+    directory: NxxDirectory?,
+    calls: List<ScreenedCall>,
 ) {
 
     var numberText by rememberSaveable { mutableStateOf("") }
@@ -80,6 +85,7 @@ fun SimulatorScreen(
                 allowedNumbers = allowedNumbers.map { it.normalizedNumber },
                 tag = null,
                 nanpProblems = NanpValidator.problems(numberText, number),
+                blockStatus = directory?.lookup(number)?.status ?: BlockStatus.UNKNOWN,
             )
         )
     }
@@ -166,6 +172,13 @@ fun SimulatorScreen(
                 }
             }
         }
+        ProbePanel(
+            directory = directory,
+            calls = calls,
+            allowedNumbers = allowedNumbers,
+            ownNumber = settings.ownNumber,
+        )
+
         DiagnosticsPanel(diagnosticsHeader)
 
         Text("call timing", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))

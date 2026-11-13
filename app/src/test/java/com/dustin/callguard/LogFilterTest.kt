@@ -23,4 +23,13 @@ class LogFilterTest {
         assertEquals("restricted", LogFilter.standbyBucket(45))
         assertEquals("other (7)", LogFilter.standbyBucket(7))
     }
+
+    @Test
+    fun hidesHardwareAddressesButKeepsOtherText() {
+        val text = "Device disconnected -- address: 52:15:D1:07:3B:2E deviceType: 0 at 14:17:54"
+        assertEquals(
+            "Device disconnected -- address: xx:xx:xx:xx:xx:xx deviceType: 0 at 14:17:54",
+            LogFilter.redactAddresses(text),
+        )
+    }
 }

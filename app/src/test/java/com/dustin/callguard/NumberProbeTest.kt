@@ -1,0 +1,77 @@
+package com.dustin.callguard
+
+import com.dustin.callguard.data.ScreenedCall
+import com.dustin.callguard.data.VerificationStatus
+import com.dustin.callguard.screening.NumberProbe
+import com.dustin.callguard.screening.NxxDirectory
+import com.dustin.callguard.screening.ProbeInput
+import com.dustin.callguard.screening.SuspicionLevel
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.ByteArrayInputStream
+import java.time.ZoneId
+
+class NumberProbeTest {
+    private val directory = NxxDirectory.parse(ByteArrayInputStream(NxxTestData.sample))
+    private val zone = ZoneId.of("America/New_York")
+
+    private fun probe(text: String, calls: List<ScreenedCall> = emptyList(), own: String? = null) =
+        NumberProbe.run(ProbeInput(text, directory, own, emptyList(), calls, zone))
+
+    private fun lines(result: com.dustin.callguard.screening.ProbeResult, title: String) =
+        result.sections.first { it.title == title }.lines
+
+    @Test
+    fun blankInputHasNothingToProbe() {
+        val result = probe("  ")
+        assertNull(result.suspicion)
+        assertTrue(lines(result, "number").first().startsWith("nothing to probe"))
+    }
+
+    @Test
+    fun unassignedBlockInACoveredAreaCodeIsHigh() {
+        val result = probe("315-999-1234")
+        assertEquals(SuspicionLevel.HIGH, result.suspicion?.level)
+        assertTrue(lines(result, "carrier block").first().contains("not assigned to any carrier"))
+    }
+
+    @Test
+    fun assignedBlockShowsCarrierRateCenterAndPooledNote() {
+        val block = lines(probe("3152001234"), "carrier block")
+        assertTrue(block.any { it.startsWith("carrier: CELLCO PARTNERSHIP DBA VERIZON WIRELESS (OCN 6563)") })
+        assertTrue(block.any { it.contains("wireless carrier") })
+        assertTrue(block.any { it == "rate center: SYRACUSE, NY" })
+        assertTrue(block.any { it.startsWith("pooled code") })
+        assertTrue(block.any { it == "nanpa data as of 2026-11-12" })
+    }
+
+    @Test
+    fun areaCodesOutsideTheFileAddNoSuspicion() {
+        val result = probe("4169991234")
+        assertTrue(lines(result, "carrier block").first().startsWith("no data for this area code"))
+        assertEquals(SuspicionLevel.LOW, result.suspicion?.level)
+    }
+
+    @Test
+    fun summarizesHistoryAndSameBlockNeighbors() {
+        val calls = listOf(
+            ScreenedCall(1, "3152001234", "3152001234", 1_000_000_000_000, "SILENCED", VerificationStatus.FAILED),
+            ScreenedCall(2, "3152001234", "3152001234", 1_000_000_100_000, "SILENCED"),
+            ScreenedCall(3, "3152009999", "3152009999", 1_000_000_200_000, "SILENCED"),
+        )
+        val history = lines(probe("3152001234", calls), "your history")
+        assertTrue(history.first().startsWith("2 calls"))
+        assertTrue(history.any { it == "1 failed caller verification" })
+        assertTrue(history.any { it.startsWith("1 other number from the same block") })
+        assertNotNull(probe("3152001234", calls).suspicion)
+    }
+
+    @Test
+    fun neighborOfYourOwnNumberIsNoted() {
+        val relation = lines(probe("3152001234", own = "3152005678"), "relationship to you")
+        assertTrue(relation.first().contains("neighbor spoofing"))
+    }
+}

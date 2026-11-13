@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.dustin.callguard.data.VerificationStatus
+import com.dustin.callguard.screening.BlockStatus
 import com.dustin.callguard.screening.NanpValidator
 import com.dustin.callguard.screening.SuspicionInput
 import com.dustin.callguard.screening.SuspicionResult
@@ -104,6 +105,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
     ) { refreshStatus() }
 
     val settings by viewModel.settings.collectAsState()
+    val directory by viewModel.directory.collectAsState()
     val allowedNumbers by viewModel.allowedNumbers.collectAsState()
     val allowedPrefixes by viewModel.allowedPrefixes.collectAsState()
     // entries past their expiry no longer count, even before the cleanup removes them
@@ -150,6 +152,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                 allowedNumbers = allowedNumbers.map { it.normalizedNumber },
                 tag = numberInfo[number]?.tag,
                 nanpProblems = NanpValidator.problems(rawByNumber[number], number),
+                blockStatus = directory?.lookup(number)?.status ?: BlockStatus.UNKNOWN,
             )
         )
     }
@@ -274,6 +277,8 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                     allowedNumbers = activeAllowedNumbers,
                     allowedPrefixes = allowedPrefixes,
                     diagnosticsHeader = diagnosticsLines,
+                    directory = directory,
+                    calls = allCalls,
                 )
                 else -> SettingsScreen(
                     settings = settings,

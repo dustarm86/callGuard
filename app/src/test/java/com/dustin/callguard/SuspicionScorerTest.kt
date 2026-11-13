@@ -4,6 +4,7 @@ import com.dustin.callguard.data.NumberTag
 import com.dustin.callguard.screening.SuspicionInput
 import com.dustin.callguard.screening.SuspicionLevel
 import com.dustin.callguard.screening.SuspicionScorer
+import com.dustin.callguard.screening.BlockStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -86,5 +87,27 @@ class SuspicionScorerTest {
         assertFalse(SuspicionScorer.sharesPrefix("3155551234", "3156551234"))
         assertFalse(SuspicionScorer.sharesPrefix("21391", "21392"))
         assertFalse(SuspicionScorer.sharesPrefix(null, "3155551234"))
+    }
+
+    @Test
+    fun unassignedBlockIsHigh() {
+        val result = SuspicionScorer.score(input().copy(blockStatus = BlockStatus.UNASSIGNED))
+        assertEquals(SuspicionLevel.HIGH, result.level)
+        assertTrue(result.reasons.any { "not assigned to any carrier" in it })
+    }
+
+    @Test
+    fun notInServiceBlockAddsPointsButAssignedAndUnknownDoNot() {
+        val plain = SuspicionScorer.score(input()).score
+        assertEquals(plain + 25, SuspicionScorer.score(input().copy(blockStatus = BlockStatus.NOT_IN_SERVICE)).score)
+        assertEquals(plain, SuspicionScorer.score(input().copy(blockStatus = BlockStatus.ASSIGNED)).score)
+        assertEquals(plain, SuspicionScorer.score(input().copy(blockStatus = BlockStatus.UNKNOWN)).score)
+    }
+
+    @Test
+    fun blockStatusIsIgnoredWhenTheNumberIsAlreadyImpossible() {
+        val impossible = input().copy(nanpProblems = listOf("exchange starts with 0"))
+        val withBlock = impossible.copy(blockStatus = BlockStatus.UNASSIGNED)
+        assertEquals(SuspicionScorer.score(impossible).score, SuspicionScorer.score(withBlock).score)
     }
 }

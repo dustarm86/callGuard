@@ -26,6 +26,8 @@ data class SuspicionInput(
     val tag: String?,
     // reasons from NanpValidator; empty when the number looks valid
     val nanpProblems: List<String> = emptyList(),
+    // what the nanpa carrier data says about the number's exchange; unknown adds nothing
+    val blockStatus: BlockStatus = BlockStatus.UNKNOWN,
 )
 
 /**
@@ -39,6 +41,9 @@ object SuspicionScorer {
     private const val NEIGHBOR_POINTS = 40
     private const val INVALID_NUMBER_POINTS = 45
     private const val SAME_AREA_CODE_POINTS = 5
+    private const val UNASSIGNED_BLOCK_POINTS = 45
+    private const val UNAVAILABLE_BLOCK_POINTS = 30
+    private const val NOT_IN_SERVICE_POINTS = 25
     private const val ALLOWED_NEIGHBOR_POINTS = 20
     private const val REPEAT_POINTS = 8
     private const val MANY_REPEATS_POINTS = 15
@@ -71,6 +76,26 @@ object SuspicionScorer {
         if (input.nanpProblems.isNotEmpty()) {
             score += INVALID_NUMBER_POINTS
             reasons += "not a real number: ${input.nanpProblems.first()}"
+        }
+
+        // an impossible number is already counted above, so the carrier data only adds to numbers that look valid
+        if (input.nanpProblems.isEmpty()) {
+            val code = "${number.take(3)}-${number.drop(3).take(3)}"
+            when (input.blockStatus) {
+                BlockStatus.UNASSIGNED -> {
+                    score += UNASSIGNED_BLOCK_POINTS
+                    reasons += "$code is not assigned to any carrier, so a real line shouldn't have this number"
+                }
+                BlockStatus.UNAVAILABLE -> {
+                    score += UNAVAILABLE_BLOCK_POINTS
+                    reasons += "$code is reserved for special use, not ordinary lines"
+                }
+                BlockStatus.NOT_IN_SERVICE -> {
+                    score += NOT_IN_SERVICE_POINTS
+                    reasons += "$code is assigned to a carrier but not in service yet"
+                }
+                else -> Unit
+            }
         }
 
         if (ownNumber != null) {

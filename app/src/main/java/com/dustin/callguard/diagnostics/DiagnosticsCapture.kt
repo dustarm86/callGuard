@@ -23,7 +23,7 @@ object DiagnosticsCapture {
     private const val MAX_LOG_CHARS = 6_000_000
     private const val MAX_LOG_LINES = 4_000
     private val logKeywords = listOf(
-        "callguard", "telecom", "callscreening", "freezer", "blockednumber", "voicemail",
+        "callguard", "telecom", "callscreening", "blockednumber", "voicemail",
     )
 
     fun hasPermission(context: Context, permission: String): Boolean =
@@ -76,7 +76,7 @@ object DiagnosticsCapture {
         out.appendLine("=== logcat (call-related lines) ===")
         val log = runCommand(listOf("logcat", "-d", "-b", "main,system,radio", "-v", "threadtime"), MAX_LOG_CHARS)
         out.appendLine(LogFilter.keep(log.lines(), logKeywords, MAX_LOG_LINES).joinToString("\n"))
-        out.toString()
+        LogFilter.redactAddresses(out.toString())
     }
 
     private fun runCommand(args: List<String>, maxChars: Int, timeoutMs: Long = 20_000): String =

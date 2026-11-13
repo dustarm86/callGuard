@@ -1,0 +1,146 @@
+package com.dustin.callguard.screening
+
+import com.dustin.callguard.data.ScreenedCall
+import com.dustin.callguard.data.VerificationStatus
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+data class ProbeSection(val title: String, val lines: List<String>)
+
+data class ProbeResult(val sections: List<ProbeSection>, val suspicion: SuspicionResult?)
+
+data class ProbeInput(
+    val rawText: String,
+    val directory: NxxDirectory?,
+    val ownNumber: String?,
+    val allowedNumbers: List<String>,
+    val calls: List<ScreenedCall>,
+    val zone: ZoneId,
+)
+
+/**
+ * looks a number up in public and local data only. it never calls, texts or contacts the number,
+ * so probing cannot tell a caller that the line is live.
+ */
+object NumberProbe {
+    private val seenFormat = DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.US)
+
+    fun run(input: ProbeInput): ProbeResult {
+        val number = NumberNormalizer.normalize(input.rawText)
+        if (number == null) {
+            return ProbeResult(listOf(ProbeSection("number", listOf("nothing to probe: type a number or pick one from your log"))), null)
+        }
+
+        val sections = mutableListOf<ProbeSection>()
+
+        val numberLines = mutableListOf(NumberNormalizer.format(number))
+        numberLines += AreaCodes.lookup(number) ?: "area code is not in the offline table"
+        if (AreaCodes.isTollFree(number)) numberLines += "toll-free number"
+        sections += ProbeSection("number", numberLines)
+
+        val problems = NanpValidator.problems(input.rawText, number)
+        sections += ProbeSection(
+            "structure",
+            if (problems.isEmpty()) listOf("no structural problems found") else problems,
+        )
+
+        val block = input.directory?.lookup(number)
+        sections += ProbeSection("carrier block", blockLines(number, input.directory, block))
+
+        val matching = input.calls.filter { it.normalizedNumber == number }
+        sections += ProbeSection("your history", historyLines(number, matching, input.calls, input.zone))
+
+        val relation = relationLines(number, input.ownNumber, input.allowedNumbers)
+        if (relation.isNotEmpty()) sections += ProbeSection("relationship to you", relation)
+
+        val suspicion = SuspicionScorer.score(
+            SuspicionInput(
+                normalizedNumber = number,
+                callCount = matching.size,
+                verificationFailed = matching.any { it.verificationStatus == VerificationStatus.FAILED },
+                ownNumber = input.ownNumber,
+                allowedNumbers = input.allowedNumbers,
+                tag = null,
+                nanpProblems = problems,
+                blockStatus = block?.status ?: BlockStatus.UNKNOWN,
+            )
+        )
+        return ProbeResult(sections, suspicion)
+    }
+
+    private fun blockLines(number: String, directory: NxxDirectory?, block: BlockInfo?): List<String> {
+        if (directory == null || block == null) {
+            return listOf("carrier data isn't in this install (run tools/buildNanpaData.py, then rebuild the app)")
+        }
+        val code = "${number.take(3)}-${number.substring(3, 6)}"
+        val lines = mutableListOf<String>()
+        when (block.status) {
+            BlockStatus.UNKNOWN -> lines += "no data for this area code: the nanpa file covers the us only, so canadian, caribbean and toll-free numbers aren't in it"
+            BlockStatus.UNASSIGNED -> lines += "$code is not assigned to any carrier in the nanpa file, so a real phone line shouldn't have this number"
+            BlockStatus.UNAVAILABLE -> lines += "$code is reserved for special use (directory assistance, test or service codes), not ordinary lines"
+            BlockStatus.NOT_IN_SERVICE, BlockStatus.ASSIGNED -> {
+                lines += "carrier: ${block.company ?: "unknown"}${block.ocn?.let { " (OCN $it)" }.orEmpty()}"
+                CarrierKinds.classify(block.company)?.let { lines += "looks like: ${it.label} (a guess from the company name)" }
+                val place = listOfNotNull(block.rateCenter, block.state).joinToString(", ")
+                if (place.isNotEmpty()) lines += "rate center: $place"
+                block.assigned?.let { lines += "code assigned: $it" }
+                if (block.status == BlockStatus.NOT_IN_SERVICE) lines += "assigned but not in service yet"
+                if (block.pooled) {
+                    lines += "pooled code: this carrier originally held the whole $code, but individual 1,000-number blocks may belong to other carriers"
+                }
+            }
+        }
+        val d = directory.asOf
+        lines += "nanpa data as of %04d-%02d-%02d".format(d / 10000, d / 100 % 100, d % 100)
+        return lines
+    }
+
+    private fun historyLines(
+        number: String,
+        matching: List<ScreenedCall>,
+        allCalls: List<ScreenedCall>,
+        zone: ZoneId,
+    ): List<String> {
+        val lines = mutableListOf<String>()
+        if (matching.isEmpty()) {
+            lines += "never seen in your log"
+        } else {
+            val sorted = matching.sortedBy { it.timestamp }
+            fun at(call: ScreenedCall) = ZonedDateTime.ofInstant(Instant.ofEpochMilli(call.timestamp), zone).format(seenFormat)
+            lines += "${matching.size} ${if (matching.size == 1) "call" else "calls"}, first ${at(sorted.first())}, last ${at(sorted.last())}"
+            val outcomes = matching.groupingBy { call ->
+                runCatching { ScreeningOutcome.valueOf(call.outcome) }.getOrNull()?.label ?: call.outcome
+            }.eachCount()
+            lines += outcomes.entries.joinToString(", ") { "${it.value} x ${it.key}" }
+            val failed = matching.count { it.verificationStatus == VerificationStatus.FAILED }
+            if (failed > 0) lines += "$failed failed caller verification"
+        }
+        val prefix = number.take(6)
+        val others = allCalls.mapNotNull { it.normalizedNumber }
+            .filter { it != number && it.length == 10 && it.startsWith(prefix) }
+            .distinct()
+        if (others.isNotEmpty()) {
+            lines += "${others.size} other ${if (others.size == 1) "number" else "numbers"} from the same block in your log: ${others.joinToString(", ") { NumberNormalizer.format(it) }}"
+        }
+        return lines
+    }
+
+    private fun relationLines(number: String, ownNumber: String?, allowedNumbers: List<String>): List<String> {
+        val lines = mutableListOf<String>()
+        val own = NumberNormalizer.normalize(ownNumber)
+        if (own != null) {
+            when {
+                number == own -> lines += "this is your own number"
+                SuspicionScorer.sharesPrefix(number, own) -> lines += "first 6 digits match your own number (neighbor spoofing pattern)"
+                AreaCodes.areaCodeOf(number) != null && AreaCodes.areaCodeOf(number) == AreaCodes.areaCodeOf(own) ->
+                    lines += "same area code as your number"
+            }
+        }
+        val neighbors = allowedNumbers.filter { it != number && SuspicionScorer.sharesPrefix(number, it) }
+        if (neighbors.isNotEmpty()) lines += "first 6 digits match ${neighbors.size} number(s) you allow"
+        return lines
+    }
+}

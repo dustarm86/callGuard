@@ -12,7 +12,10 @@ import com.dustin.callguard.data.ScreenedCall
 import com.dustin.callguard.data.ScreenerSettings
 import com.dustin.callguard.data.ScreenerSettingsStore
 import com.dustin.callguard.screening.NumberNormalizer
+import com.dustin.callguard.screening.NxxDirectory
+import com.dustin.callguard.screening.NxxDirectoryLoader
 import com.dustin.callguard.screening.PrefixNormalizer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +40,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // WorkManager keeps queued runs across restarts; this just makes sure they match the settings
         DigestScheduler.reschedule(application)
         viewModelScope.launch { database.allowedNumberDao().deleteExpired(System.currentTimeMillis()) }
+    }
+
+    // offline carrier data, null until it has loaded (or when this install doesn't include it)
+    private val _directory = MutableStateFlow<NxxDirectory?>(null)
+    val directory: StateFlow<NxxDirectory?> = _directory.asStateFlow()
+
+    // declared after the flow above so the flow exists before the loader can finish
+    init {
+        viewModelScope.launch(Dispatchers.IO) { _directory.value = NxxDirectoryLoader.load(application) }
     }
 
     private fun digestFields(settings: ScreenerSettings) = listOf(
