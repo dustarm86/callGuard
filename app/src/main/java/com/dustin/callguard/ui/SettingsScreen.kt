@@ -8,6 +8,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -53,113 +55,114 @@ fun SettingsScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        SwitchRow(
-            title = "screening on",
-            subtitle = "master switch. when off, every call rings normally.",
-            checked = settings.screeningEnabled,
-            onCheckedChange = { checked -> onChange { it.copy(screeningEnabled = checked) } },
-        )
+        SectionCard(title = "screening") {
+            SwitchRow(
+                title = "screening on",
+                subtitle = "master switch. when off, every call rings normally.",
+                checked = settings.screeningEnabled,
+                onCheckedChange = { checked -> onChange { it.copy(screeningEnabled = checked) } },
+            )
 
-        SwitchRow(
-            title = "only during work hours",
-            subtitle = "outside the schedule below, all calls ring.",
-            checked = settings.workHoursOnly,
-            onCheckedChange = { checked -> onChange { it.copy(workHoursOnly = checked) } },
-        )
+            SwitchRow(
+                title = "only during work hours",
+                subtitle = "outside the schedule below, all calls ring.",
+                checked = settings.workHoursOnly,
+                onCheckedChange = { checked -> onChange { it.copy(workHoursOnly = checked) } },
+            )
 
-        if (settings.workHoursOnly) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
-                    showTimePicker(context, settings.workStartMinutes) { picked ->
-                        onChange { it.copy(workStartMinutes = picked) }
+            if (settings.workHoursOnly) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        showTimePicker(context, settings.workStartMinutes) { picked ->
+                            onChange { it.copy(workStartMinutes = picked) }
+                        }
+                    }) { Text("start ${formatMinutes(settings.workStartMinutes)}") }
+                    OutlinedButton(onClick = {
+                        showTimePicker(context, settings.workEndMinutes) { picked ->
+                            onChange { it.copy(workEndMinutes = picked) }
+                        }
+                    }) { Text("end ${formatMinutes(settings.workEndMinutes)}") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    DayOfWeek.values().forEach { day ->
+                        FilterChip(
+                            selected = settings.isWorkDay(day),
+                            onClick = { onChange { it.withWorkDayToggled(day) } },
+                            label = { Text(day.getDisplayName(TextStyle.NARROW, Locale.getDefault())) },
+                        )
                     }
-                }) { Text("start ${formatMinutes(settings.workStartMinutes)}") }
-                OutlinedButton(onClick = {
-                    showTimePicker(context, settings.workEndMinutes) { picked ->
-                        onChange { it.copy(workEndMinutes = picked) }
-                    }
-                }) { Text("end ${formatMinutes(settings.workEndMinutes)}") }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                DayOfWeek.values().forEach { day ->
-                    FilterChip(
-                        selected = settings.isWorkDay(day),
-                        onClick = { onChange { it.withWorkDayToggled(day) } },
-                        label = { Text(day.getDisplayName(TextStyle.NARROW, Locale.getDefault())) },
-                    )
                 }
             }
+
+            SwitchRow(
+                title = "silence failed caller verification",
+                subtitle = "catches spoofed numbers, even ones that match a contact. needs carrier support, so it won't catch everything.",
+                checked = settings.silenceFailedVerification,
+                onCheckedChange = { checked -> onChange { it.copy(silenceFailedVerification = checked) } },
+            )
         }
+        SectionCard(title = "your number") {
+            Text(
+                "used to spot spoofed numbers that copy the start of yours. it never leaves this phone.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedTextField(
+                value = settings.ownNumber,
+                onValueChange = { typed -> onChange { it.copy(ownNumber = typed) } },
+                label = { Text("phone number") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        SectionCard(title = "repeat callers and reject") {
+            SwitchRow(
+                title = "let repeat callers through",
+                subtitle = "if a silenced number calls again within the window, let it ring. real people retry, most spammers don't. off by default.",
+                checked = settings.repeatBypassEnabled,
+                onCheckedChange = { checked -> onChange { it.copy(repeatBypassEnabled = checked) } },
+            )
 
-        SwitchRow(
-            title = "silence failed caller verification",
-            subtitle = "catches spoofed numbers, even ones that match a contact. needs carrier support, so it won't catch everything.",
-            checked = settings.silenceFailedVerification,
-            onCheckedChange = { checked -> onChange { it.copy(silenceFailedVerification = checked) } },
-        )
-
-        Text("your number", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-        Text(
-            "used to spot spoofed numbers that copy the start of yours. it never leaves this phone.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        OutlinedTextField(
-            value = settings.ownNumber,
-            onValueChange = { typed -> onChange { it.copy(ownNumber = typed) } },
-            label = { Text("phone number") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        SwitchRow(
-            title = "let repeat callers through",
-            subtitle = "if a silenced number calls again within the window, let it ring. real people retry, most spammers don't. off by default.",
-            checked = settings.repeatBypassEnabled,
-            onCheckedChange = { checked -> onChange { it.copy(repeatBypassEnabled = checked) } },
-        )
-
-        if (settings.repeatBypassEnabled) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(2, 3, 5, 10).forEach { minutes ->
-                    FilterChip(
-                        selected = settings.repeatWindowMinutes == minutes,
-                        onClick = { onChange { it.copy(repeatWindowMinutes = minutes) } },
-                        label = { Text("$minutes min") },
-                    )
+            if (settings.repeatBypassEnabled) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(2, 3, 5, 10).forEach { minutes ->
+                        FilterChip(
+                            selected = settings.repeatWindowMinutes == minutes,
+                            onClick = { onChange { it.copy(repeatWindowMinutes = minutes) } },
+                            label = { Text("$minutes min") },
+                        )
+                    }
                 }
             }
+
+            SwitchRow(
+                title = "reject instead of silence",
+                subtitle = "ends an unknown call right away instead of letting it ring silently. the caller usually hears busy or reaches voicemail, which can tell spammers the line is live. off by default.",
+                checked = settings.rejectInsteadOfSilence,
+                onCheckedChange = { checked -> onChange { it.copy(rejectInsteadOfSilence = checked) } },
+            )
         }
-
-        SwitchRow(
-            title = "reject instead of silence",
-            subtitle = "ends an unknown call right away instead of letting it ring silently. the caller usually hears busy or reaches voicemail, which can tell spammers the line is live. off by default.",
-            checked = settings.rejectInsteadOfSilence,
-            onCheckedChange = { checked -> onChange { it.copy(rejectInsteadOfSilence = checked) } },
-        )
-
-        NotificationSettings(settings = settings, onChange = onChange)
-
-        Text(
-            "appearance",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(top = 16.dp),
-        )
-        SwitchRow(
-            title = "dark mode",
-            subtitle = "on keeps callGuard dark no matter what. off follows your phone's light or dark setting.",
-            checked = settings.alwaysDark,
-            onCheckedChange = { checked -> onChange { it.copy(alwaysDark = checked) } },
-        )
-        SwitchRow(
-            title = "use my phone's wallpaper colors",
-            subtitle = "off uses callGuard's green and violet. on follows your wallpaper theme (android 12 and up).",
-            checked = settings.useSystemColors,
-            onCheckedChange = { checked -> onChange { it.copy(useSystemColors = checked) } },
-        )
+        SectionCard(title = "summaries") {
+            NotificationSettings(settings = settings, onChange = onChange)
+        }
+        SectionCard(title = "appearance") {
+            SwitchRow(
+                title = "dark mode",
+                subtitle = "on keeps callGuard dark no matter what. off follows your phone's light or dark setting.",
+                checked = settings.alwaysDark,
+                onCheckedChange = { checked -> onChange { it.copy(alwaysDark = checked) } },
+            )
+            SwitchRow(
+                title = "use my phone's wallpaper colors",
+                subtitle = "off uses callGuard's green and violet. on follows your wallpaper theme (android 12 and up).",
+                checked = settings.useSystemColors,
+                onCheckedChange = { checked -> onChange { it.copy(useSystemColors = checked) } },
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -173,12 +176,6 @@ private fun NotificationSettings(
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted -> permissionGranted = granted }
-
-    Text(
-        "summaries",
-        style = MaterialTheme.typography.titleLarge,
-        modifier = Modifier.padding(top = 16.dp),
-    )
 
     SwitchRow(
         title = "summary notifications",
@@ -275,7 +272,7 @@ private fun SwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {

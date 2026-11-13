@@ -194,31 +194,31 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
                     icon = { Icon(Icons.Default.Phone, contentDescription = null) },
-                    label = { Text("log") },
+                    label = { NavLabel("log") },
                 )
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
                     icon = { Icon(Icons.Default.Person, contentDescription = null) },
-                    label = { Text("allowlist") },
+                    label = { NavLabel("allowlist") },
                 )
                 NavigationBarItem(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
                     icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-                    label = { Text("trends") },
+                    label = { NavLabel("trends") },
                 )
                 NavigationBarItem(
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
                     icon = { Icon(Icons.Default.Build, contentDescription = null) },
-                    label = { Text("tools") },
+                    label = { NavLabel("tools") },
                 )
                 NavigationBarItem(
                     selected = selectedTab == 4,
                     onClick = { selectedTab = 4 },
                     icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    label = { Text("settings") },
+                    label = { NavLabel("settings") },
                 )
             }
         },

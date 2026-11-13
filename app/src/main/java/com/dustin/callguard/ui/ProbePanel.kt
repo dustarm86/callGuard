@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -58,13 +57,10 @@ fun ProbePanel(
     var enumLines by remember { mutableStateOf<List<String>>(emptyList()) }
     var enumBusy by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        Text("probe a number", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
-        Text(
-            "checks a number against offline carrier data and your own log. it only reads data: it never calls, texts or pings the number, so a spammer can't tell you looked.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    SectionCard(
+        title = "probe a number",
+        about = "checks a number against offline carrier data, the ftc's public reports and your own log. it only reads data: it never calls, texts or pings the number, so a spammer can't tell you looked.",
+    ) {
         OutlinedTextField(
             value = text,
             onValueChange = { text = it },
@@ -99,51 +95,42 @@ fun ProbePanel(
                 )
             )
             result.suspicion?.let { suspicion ->
-                Text(
-                    "suspicion: ${suspicion.level.label} (${suspicion.score}/100)",
-                    style = MaterialTheme.typography.titleMedium,
-                )
+                SuspicionBadge(suspicion.level, suspicion.score)
                 suspicion.reasons.forEach { reason ->
                     Text("· $reason", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             SelectionContainer {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    result.sections.forEach { section ->
-                        Column {
-                            Text(section.title, style = MaterialTheme.typography.titleSmall)
-                            section.lines.forEach { line ->
-                                Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    result.sections.forEach { section -> ResultBlock(section.title, section.lines) }
                 }
             }
 
             val probed = NumberNormalizer.normalize(text)
             if (probed != null && EnumDns.name(probed) != null) {
-                Text("enum (public dns)", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    "asks public dns whether this number is registered in enum. this sends the number's digits to your phone's dns resolver, or to cloudflare over https when that resolver doesn't answer, so it only runs when you tap. it never contacts the number.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedButton(
-                    enabled = !enumBusy,
-                    onClick = {
-                        enumBusy = true
-                        scope.launch {
-                            enumLines = EnumLookup.query(context, probed)
-                            enumFor = probed
-                            enumBusy = false
-                        }
-                    },
-                ) { Text(if (enumBusy) "asking dns…" else "look up enum") }
-                if (enumFor == probed) {
-                    SelectionContainer {
-                        Column {
-                            enumLines.forEach { line ->
-                                Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                ResultBlock(
+                    title = "enum (public dns)",
+                    lines = listOf(
+                        "asks public dns whether this number is in enum. only runs when you tap: it sends the digits to your phone's dns resolver, or to cloudflare over https if that fails. it never contacts the number.",
+                    ),
+                ) {
+                    OutlinedButton(
+                        enabled = !enumBusy,
+                        onClick = {
+                            enumBusy = true
+                            scope.launch {
+                                enumLines = EnumLookup.query(context, probed)
+                                enumFor = probed
+                                enumBusy = false
+                            }
+                        },
+                    ) { Text(if (enumBusy) "asking dns…" else "look up enum") }
+                    if (enumFor == probed) {
+                        SelectionContainer {
+                            Column {
+                                enumLines.forEach { line ->
+                                    Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }

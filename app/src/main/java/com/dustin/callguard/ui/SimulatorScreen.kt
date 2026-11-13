@@ -109,75 +109,68 @@ fun SimulatorScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("tools", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 8.dp))
-        Text("simulate a call", style = MaterialTheme.typography.titleLarge)
-        Text(
-            "runs a made-up call through callGuard's real decision code using your current settings, allowlist and prefixes. leave the number empty to simulate a hidden number. it can't show whether android actually silences the ring.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        OutlinedTextField(
-            value = numberText,
-            onValueChange = { numberText = it },
-            label = { Text("caller number") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        SimulatorSwitch("number is in my contacts", isContact) { isContact = it }
-        SimulatorSwitch("failed caller verification", verificationFailed) { verificationFailed = it }
-        SimulatorSwitch("same number called again just now", calledAgain) { calledAgain = it }
-
-        val rings = outcome.allowsRing
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (rings) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.secondaryContainer
-                }
-            ),
+        SectionCard(
+            title = "simulate a call",
+            about = "runs a made-up call through callGuard's real decision code using your current settings, allowlist and prefixes. leave the number empty to simulate a hidden number. it can't show whether android actually silences the ring.",
         ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = when {
-                        rings -> "this call would ring"
-                        outcome.rejectsCall -> "this call would be rejected"
-                        else -> "this call would be silenced"
-                    },
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(outcome.label, style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    text = normalized?.let { NumberNormalizer.format(it) } ?: "hidden number",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                AreaCodes.lookup(normalized)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                if (allowlisted) {
-                    Text("matched your allowlist or a number block", style = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(
+                value = numberText,
+                onValueChange = { numberText = it },
+                label = { Text("caller number") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            SimulatorSwitch("number is in my contacts", isContact) { isContact = it }
+            SimulatorSwitch("failed caller verification", verificationFailed) { verificationFailed = it }
+            SimulatorSwitch("same number called again just now", calledAgain) { calledAgain = it }
+
+            val rings = outcome.allowsRing
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (rings) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    }
+                ),
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = when {
+                            rings -> "this call would ring"
+                            outcome.rejectsCall -> "this call would be rejected"
+                            else -> "this call would be silenced"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(outcome.label, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = normalized?.let { NumberNormalizer.format(it) } ?: "hidden number",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    AreaCodes.lookup(normalized)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                    if (allowlisted) {
+                        Text("matched your allowlist or a number block", style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
-        }
 
-        if (suspicion != null) {
-            Column {
-                Text(
-                    text = "suspicion: ${suspicion.level.label} (${suspicion.score}/100)",
-                    style = MaterialTheme.typography.titleMedium,
-                )
+            if (suspicion != null) {
+                SuspicionBadge(suspicion.level, suspicion.score)
                 if (suspicion.reasons.isEmpty()) {
                     Text(
                         "no warning signs from the number itself",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 suspicion.reasons.forEach { reason ->
                     Text(
                         "· $reason",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -202,12 +195,18 @@ fun SimulatorScreen(
 
         DiagnosticsPanel(diagnosticsHeader)
 
-        Text("call timing", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
-        Text(
-            "tap a screened call in the log to see how fast callGuard answered it and whether it was the first call since the app process started. the csv and report on the trends tab include the same timing columns.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        SectionCard(
+            title = "call timing",
+            summary = "how fast callGuard answered each call",
+            collapsible = true,
+            initiallyOpen = false,
+        ) {
+            Text(
+                "tap a screened call in the log to see how fast callGuard answered it and whether it was the first call since the app process started. the csv and report on the trends tab include the same timing columns.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
