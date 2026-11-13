@@ -56,6 +56,7 @@ fun SimulatorScreen(
     directory: NxxDirectory?,
     calls: List<ScreenedCall>,
     complaints: ComplaintIndex?,
+    contactNumbers: Set<String>,
     complaintStatus: String,
     complaintsRefreshing: Boolean,
     onRefreshComplaints: () -> Unit,
@@ -92,6 +93,10 @@ fun SimulatorScreen(
                 tag = null,
                 nanpProblems = NanpValidator.problems(numberText, number),
                 blockStatus = directory?.lookup(number)?.status ?: BlockStatus.UNKNOWN,
+                complaintCount = complaints?.lookup(number)?.count ?: 0,
+                blockReportedNumbers = complaints?.blockLookup(number)?.otherNumbers ?: 0,
+                callbackRiskPlace = com.dustin.callguard.screening.AreaCodes.callbackRisk(number),
+                contactNeighbors = SuspicionScorer.neighborCount(number, contactNumbers),
             )
         )
     }
@@ -184,6 +189,7 @@ fun SimulatorScreen(
             allowedNumbers = allowedNumbers,
             ownNumber = settings.ownNumber,
             complaints = complaints,
+            contactNumbers = contactNumbers,
         )
 
         ComplaintPanel(

@@ -9,6 +9,21 @@ object AreaCodes {
 
     val tollFreeCodes: Set<String> = setOf("800", "833", "844", "855", "866", "877", "888")
 
+    // north american area codes outside the us and canada that bill like international calls, which
+    // is why "one ring" callback scams use them. us territories (puerto rico, guam, the us virgin islands) are
+    // domestic calls and are not listed.
+    private val callbackRiskCodes: Map<String, String> = mapOf(
+        "242" to "the Bahamas", "246" to "Barbados", "264" to "Anguilla", "268" to "Antigua and Barbuda",
+        "284" to "the British Virgin Islands", "345" to "the Cayman Islands", "441" to "Bermuda",
+        "473" to "Grenada", "649" to "Turks and Caicos", "658" to "Jamaica", "664" to "Montserrat",
+        "721" to "Sint Maarten", "758" to "Saint Lucia", "767" to "Dominica", "784" to "Saint Vincent",
+        "809" to "the Dominican Republic", "829" to "the Dominican Republic", "849" to "the Dominican Republic",
+        "868" to "Trinidad and Tobago", "869" to "Saint Kitts and Nevis", "876" to "Jamaica",
+    )
+
+    /** the country when the area code is one that a callback scam can bill like an international call, else null. */
+    fun callbackRisk(normalizedNumber: String?): String? = areaCodeOf(normalizedNumber)?.let { callbackRiskCodes[it] }
+
     fun areaCodeOf(normalizedNumber: String?): String? =
         normalizedNumber?.takeIf { it.length == 10 }?.substring(0, 3)
 

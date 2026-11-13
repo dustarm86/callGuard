@@ -15,6 +15,27 @@ object ContactLookup {
         return candidates.any { lookup(context, it) }
     }
 
+    /** every contact number as a normalized 10-digit number, for the neighbor check. kept in memory only. */
+    fun allNumbers(context: Context): Set<String> {
+        return try {
+            context.contentResolver.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                buildSet {
+                    while (cursor.moveToNext()) {
+                        NumberNormalizer.normalize(cursor.getString(0))?.takeIf { it.length == 10 }?.let(::add)
+                    }
+                }
+            } ?: emptySet()
+        } catch (e: SecurityException) {
+            emptySet()
+        }
+    }
+
     private fun lookup(context: Context, number: String): Boolean {
         val uri = Uri.withAppendedPath(
             ContactsContract.PhoneLookup.CONTENT_FILTER_URI,

@@ -25,6 +25,34 @@ class NumberProbeTest {
         result.sections.first { it.title == title }.lines
 
     @Test
+    fun caribbeanAreaCodeIsExplainedAndScored() {
+        val result = probe("876-555-0123")
+        assertTrue(lines(result, "number").any { it.contains("Jamaica") && it.contains("one-ring") })
+        assertTrue(result.suspicion!!.reasons.any { it.contains("Jamaica") })
+        assertTrue(lines(result, "phone number library").any { it.startsWith("country: Jamaica") })
+    }
+
+    @Test
+    fun reportedNeighborsInTheBlockAreShownAndScored() {
+        val complaints = com.dustin.callguard.complaints.ComplaintIndex.Builder().apply {
+            listOf("3155550101", "3155550102", "3155550103").forEach {
+                add(com.dustin.callguard.complaints.ComplaintReport(it, "2026-11-10", true, "Other"))
+            }
+        }.build(1)
+        val result = NumberProbe.run(ProbeInput("315-555-0199", directory, null, emptyList(), emptyList(), zone, complaints))
+        assertTrue(lines(result, "public complaints").any { it.startsWith("3 other numbers in the same block") })
+        assertTrue(result.suspicion!!.reasons.any { it.contains("same block") })
+    }
+
+    @Test
+    fun contactNeighborsAreShownInTheRelationshipSection() {
+        val result = NumberProbe.run(
+            ProbeInput("315-948-8351", directory, null, emptyList(), emptyList(), zone, contactNumbers = listOf("3159480000", "2125550123")),
+        )
+        assertTrue(lines(result, "relationship to you").any { it.contains("1 of your contacts") })
+    }
+
+    @Test
     fun blankInputHasNothingToProbe() {
         val result = probe("  ")
         assertNull(result.suspicion)

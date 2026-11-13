@@ -62,6 +62,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _complaintsRefreshing = MutableStateFlow(false)
     val complaintsRefreshing: StateFlow<Boolean> = _complaintsRefreshing.asStateFlow()
 
+    // contact numbers for the neighbor check; held in memory only, never stored or logged
+    private val _contactNumbers = MutableStateFlow<Set<String>>(emptySet())
+    val contactNumbers: StateFlow<Set<String>> = _contactNumbers.asStateFlow()
+
+    fun reloadContacts() {
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+            getApplication<Application>(),
+            android.Manifest.permission.READ_CONTACTS,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            _contactNumbers.value = emptySet()
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            _contactNumbers.value = com.dustin.callguard.screening.ContactLookup.allNumbers(getApplication<Application>())
+        }
+    }
+
     // short confirmations for the snackbar; dropped when nothing is showing yet
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val messages: SharedFlow<String> = _messages.asSharedFlow()

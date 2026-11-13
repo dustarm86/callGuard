@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.dustin.callguard.data.VerificationStatus
+import com.dustin.callguard.screening.AreaCodes
 import com.dustin.callguard.screening.BlockStatus
 import com.dustin.callguard.screening.NanpValidator
 import com.dustin.callguard.screening.SuspicionInput
@@ -100,6 +101,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
     LifecycleResumeEffect(Unit) {
         refreshStatus()
         viewModel.reloadSettings()
+        viewModel.reloadContacts()
         onPauseOrDispose { }
     }
 
@@ -113,6 +115,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
     val settings by viewModel.settings.collectAsState()
     val directory by viewModel.directory.collectAsState()
     val complaints by viewModel.complaints.collectAsState()
+    val contactNumbers by viewModel.contactNumbers.collectAsState()
     val complaintStatus by viewModel.complaintStatus.collectAsState()
     val complaintsRefreshing by viewModel.complaintsRefreshing.collectAsState()
     val allowedNumbers by viewModel.allowedNumbers.collectAsState()
@@ -163,6 +166,9 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                 nanpProblems = NanpValidator.problems(rawByNumber[number], number),
                 blockStatus = directory?.lookup(number)?.status ?: BlockStatus.UNKNOWN,
                 complaintCount = complaints?.lookup(number)?.count ?: 0,
+                blockReportedNumbers = complaints?.blockLookup(number)?.otherNumbers ?: 0,
+                callbackRiskPlace = AreaCodes.callbackRisk(number),
+                contactNeighbors = SuspicionScorer.neighborCount(number, contactNumbers),
             )
         )
     }
@@ -302,6 +308,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                     directory = directory,
                     calls = allCalls,
                     complaints = complaints,
+                    contactNumbers = contactNumbers,
                     complaintStatus = complaintStatus,
                     complaintsRefreshing = complaintsRefreshing,
                     onRefreshComplaints = viewModel::refreshComplaints,

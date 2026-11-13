@@ -45,6 +45,7 @@ fun ProbePanel(
     allowedNumbers: List<AllowedNumber>,
     ownNumber: String,
     complaints: ComplaintIndex?,
+    contactNumbers: Collection<String>,
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     val recent = remember(calls) {
@@ -94,6 +95,7 @@ fun ProbePanel(
                     calls = calls,
                     zone = ZoneId.systemDefault(),
                     complaints = complaints,
+                    contactNumbers = contactNumbers,
                 )
             )
             result.suspicion?.let { suspicion ->

@@ -30,6 +30,12 @@ data class SuspicionInput(
     val blockStatus: BlockStatus = BlockStatus.UNKNOWN,
     // how many consumer reports of this number are in the downloaded ftc data
     val complaintCount: Int = 0,
+    // other numbers in this number's block (first 6 digits) that are in the downloaded ftc data
+    val blockReportedNumbers: Int = 0,
+    // the country when the area code can bill like an international call (one-ring scams), else null
+    val callbackRiskPlace: String? = null,
+    // contacts that share this number's first 6 digits
+    val contactNeighbors: Int = 0,
 )
 
 /**
@@ -50,6 +56,12 @@ object SuspicionScorer {
     private const val MANY_COMPLAINTS_POINTS = 35
     private const val MANY_COMPLAINTS_AT = 3
     private const val ALLOWED_NEIGHBOR_POINTS = 20
+    private const val CONTACT_NEIGHBOR_POINTS = 10
+    private const val CALLBACK_RISK_POINTS = 15
+    private const val BLOCK_REPORTED_POINTS = 10
+    private const val BLOCK_REPORTED_AT = 3
+    private const val MANY_BLOCK_REPORTED_POINTS = 20
+    private const val MANY_BLOCK_REPORTED_AT = 10
     private const val REPEAT_POINTS = 8
     private const val MANY_REPEATS_POINTS = 15
     private const val MANY_REPEATS_AT = 3
@@ -61,6 +73,10 @@ object SuspicionScorer {
         first != null && second != null &&
             first.length == 10 && second.length == 10 &&
             first.substring(0, 6) == second.substring(0, 6)
+
+    /** how many of [numbers] share the first 6 digits of [number], not counting [number] itself. */
+    fun neighborCount(number: String, numbers: Collection<String>): Int =
+        numbers.count { it != number && sharesPrefix(number, it) }
 
     fun score(input: SuspicionInput): SuspicionResult {
         when (input.tag) {
@@ -113,6 +129,17 @@ object SuspicionScorer {
             }
         }
 
+        if (input.blockReportedNumbers >= BLOCK_REPORTED_AT) {
+            val many = input.blockReportedNumbers >= MANY_BLOCK_REPORTED_AT
+            score += if (many) MANY_BLOCK_REPORTED_POINTS else BLOCK_REPORTED_POINTS
+            reasons += "${input.blockReportedNumbers} other numbers in the same block are in recent ftc data, which is how a spam campaign looks"
+        }
+
+        input.callbackRiskPlace?.let { place ->
+            score += CALLBACK_RISK_POINTS
+            reasons += "area code belongs to $place, where callback scams bill like an international call"
+        }
+
         if (ownNumber != null) {
             when {
                 number == ownNumber -> {
@@ -134,6 +161,11 @@ object SuspicionScorer {
         if (input.allowedNumbers.any { it != number && sharesPrefix(number, it) }) {
             score += ALLOWED_NEIGHBOR_POINTS
             reasons += "first 6 digits match a number you allow"
+        }
+
+        if (input.contactNeighbors > 0) {
+            score += CONTACT_NEIGHBOR_POINTS
+            reasons += "first 6 digits match ${input.contactNeighbors} of your contacts (common in a small town, but it is also how neighbor spoofing works)"
         }
 
         when {

@@ -21,6 +21,8 @@ data class ProbeInput(
     val calls: List<ScreenedCall>,
     val zone: ZoneId,
     val complaints: ComplaintIndex? = null,
+    // normalized numbers of the person's contacts, for the neighbor check
+    val contactNumbers: Collection<String> = emptyList(),
 )
 
 /**
@@ -41,6 +43,10 @@ object NumberProbe {
         val numberLines = mutableListOf(NumberNormalizer.format(number))
         numberLines += AreaCodes.lookup(number) ?: "area code is not in the offline table"
         if (AreaCodes.isTollFree(number)) numberLines += "toll-free number"
+        val callbackPlace = AreaCodes.callbackRisk(number)
+        if (callbackPlace != null) {
+            numberLines += "area code belongs to $callbackPlace: calling back bills like an international call, which is how one-ring scams make money"
+        }
         sections += ProbeSection("number", numberLines)
 
         val problems = NanpValidator.problems(input.rawText, number)
@@ -53,12 +59,15 @@ object NumberProbe {
         sections += ProbeSection("carrier block", blockLines(number, input.directory, block))
 
         val reported = input.complaints?.lookup(number)
-        sections += ProbeSection("public complaints", complaintLines(input.complaints, reported))
+        val blockReported = input.complaints?.blockLookup(number)
+        sections += ProbeSection("public complaints", complaintLines(input.complaints, reported) + blockComplaintLines(number, blockReported))
 
         val matching = input.calls.filter { it.normalizedNumber == number }
         sections += ProbeSection("your history", historyLines(number, matching, input.calls, input.zone))
 
-        val relation = relationLines(number, input.ownNumber, input.allowedNumbers)
+        val contactNeighbors = SuspicionScorer.neighborCount(number, input.contactNumbers)
+        val relation = relationLines(number, input.ownNumber, input.allowedNumbers, contactNeighbors)
+        if (number.length == 10) sections += ProbeSection("phone number library", PhoneLibCheck.lines(number))
         if (relation.isNotEmpty()) sections += ProbeSection("relationship to you", relation)
 
         val suspicion = SuspicionScorer.score(
@@ -72,6 +81,9 @@ object NumberProbe {
                 nanpProblems = problems,
                 blockStatus = block?.status ?: BlockStatus.UNKNOWN,
                 complaintCount = reported?.count ?: 0,
+                blockReportedNumbers = blockReported?.otherNumbers ?: 0,
+                callbackRiskPlace = callbackPlace,
+                contactNeighbors = contactNeighbors,
             )
         )
         return ProbeResult(sections, suspicion)
@@ -121,6 +133,17 @@ object NumberProbe {
         return lines
     }
 
+    private fun blockComplaintLines(number: String, stats: com.dustin.callguard.complaints.BlockComplaintStats?): List<String> {
+        if (stats == null || number.length < 6) return emptyList()
+        val code = "${number.take(3)}-${number.substring(3, 6)}"
+        val robo = if (stats.robocalls > 0) ", ${stats.robocalls} marked as robocalls" else ""
+        return listOf(
+            "${stats.otherNumbers} other ${if (stats.otherNumbers == 1) "number" else "numbers"} in the same block ($code) " +
+                "${if (stats.otherNumbers == 1) "was" else "were"} reported (${stats.reports} reports$robo)",
+            "spam campaigns often rotate through one block, so reports of neighbors can matter even when this number has none",
+        )
+    }
+
     private fun historyLines(
         number: String,
         matching: List<ScreenedCall>,
@@ -151,7 +174,7 @@ object NumberProbe {
         return lines
     }
 
-    private fun relationLines(number: String, ownNumber: String?, allowedNumbers: List<String>): List<String> {
+    private fun relationLines(number: String, ownNumber: String?, allowedNumbers: List<String>, contactNeighbors: Int): List<String> {
         val lines = mutableListOf<String>()
         val own = NumberNormalizer.normalize(ownNumber)
         if (own != null) {
@@ -164,6 +187,9 @@ object NumberProbe {
         }
         val neighbors = allowedNumbers.filter { it != number && SuspicionScorer.sharesPrefix(number, it) }
         if (neighbors.isNotEmpty()) lines += "first 6 digits match ${neighbors.size} number(s) you allow"
+        if (contactNeighbors > 0) {
+            lines += "first 6 digits match $contactNeighbors of your contacts: neighbor spoofing copies the start of numbers you know, but it is also normal in a small town"
+        }
         return lines
     }
 }

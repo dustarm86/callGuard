@@ -16,6 +16,15 @@ class AreaCodesTest {
     }
 
     @Test
+    fun flagsCaribbeanCodesButNotUsTerritoriesOrOrdinaryCodes() {
+        assertEquals("Jamaica", AreaCodes.callbackRisk("8765550123"))
+        assertEquals("the Dominican Republic", AreaCodes.callbackRisk("8095550123"))
+        assertNull(AreaCodes.callbackRisk("7875550123")) // puerto rico is a domestic call
+        assertNull(AreaCodes.callbackRisk("3159488351"))
+        assertNull(AreaCodes.callbackRisk("876"))
+    }
+
+    @Test
     fun overlayCodesShareTheirRegion() {
         assertEquals(AreaCodes.lookup("3155550123"), AreaCodes.lookup("6805550123"))
     }

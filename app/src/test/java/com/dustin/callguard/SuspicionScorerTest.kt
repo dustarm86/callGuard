@@ -22,6 +22,40 @@ class SuspicionScorerTest {
         nanpProblems: List<String> = emptyList(),
     ) = SuspicionInput(number, callCount, verificationFailed, ownNumber, allowedNumbers, tag, nanpProblems)
 
+    private fun withExtras(
+        blockReportedNumbers: Int = 0,
+        callbackRiskPlace: String? = null,
+        contactNeighbors: Int = 0,
+    ) = input().copy(
+        blockReportedNumbers = blockReportedNumbers,
+        callbackRiskPlace = callbackRiskPlace,
+        contactNeighbors = contactNeighbors,
+    )
+
+    @Test
+    fun reportedNeighborsInTheBlockRaiseTheScoreInTwoSteps() {
+        val base = SuspicionScorer.score(withExtras()).score
+        assertEquals(base, SuspicionScorer.score(withExtras(blockReportedNumbers = 2)).score)
+        assertEquals(base + 10, SuspicionScorer.score(withExtras(blockReportedNumbers = 3)).score)
+        assertEquals(base + 20, SuspicionScorer.score(withExtras(blockReportedNumbers = 10)).score)
+        assertTrue(SuspicionScorer.score(withExtras(blockReportedNumbers = 3)).reasons.any { it.contains("same block") })
+    }
+
+    @Test
+    fun callbackRiskAreaCodesAddPointsAndNameTheCountry() {
+        val base = SuspicionScorer.score(withExtras()).score
+        val result = SuspicionScorer.score(withExtras(callbackRiskPlace = "Jamaica"))
+        assertEquals(base + 15, result.score)
+        assertTrue(result.reasons.any { it.contains("Jamaica") })
+    }
+
+    @Test
+    fun contactNeighborsAddALittleAndAreCountedWithoutTheNumberItself() {
+        val base = SuspicionScorer.score(withExtras()).score
+        assertEquals(base + 10, SuspicionScorer.score(withExtras(contactNeighbors = 4)).score)
+        assertEquals(1, SuspicionScorer.neighborCount("3159488351", listOf("3159488351", "3159480000", "2125550123")))
+    }
+
     @Test
     fun plainUnknownCallerIsLow() {
         val result = SuspicionScorer.score(input())
