@@ -64,11 +64,13 @@ tasks.withType<Test>().configureEach {
         exceptionFormat = TestExceptionFormat.FULL
         showStandardStreams = false
     }
+    // read at configuration time and captured as a plain value: the configuration cache can't reload a task action that reaches back into the task or project
+    val junitXmlDir = reports.junitXml.outputLocation
     doLast {
         var tests = 0
         var skipped = 0
         var failed = 0
-        reports.junitXml.outputLocation.get().asFile
+        junitXmlDir.get().asFile
             .listFiles { file -> file.extension == "xml" }
             ?.forEach { file ->
                 val match = Regex("""<testsuite [^>]*?tests="(\d+)" skipped="(\d+)" failures="(\d+)" errors="(\d+)"""")
