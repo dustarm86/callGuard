@@ -97,6 +97,7 @@ fun SimulatorScreen(
                 blockReportedNumbers = complaints?.blockLookup(number)?.otherNumbers ?: 0,
                 callbackRiskPlace = com.dustin.callguard.screening.AreaCodes.callbackRisk(number),
                 contactNeighbors = SuspicionScorer.neighborCount(number, contactNumbers),
+                blockHolderStatus = directory?.blockHolder(number)?.status,
             )
         )
     }

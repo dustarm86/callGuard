@@ -55,6 +55,12 @@ class NxxDirectory private constructor(
 
     val size: Int get() = keys.size
 
+    /** the 1,000-number block data, attached by [NxxDirectoryLoader] when blocks.bin is bundled; null otherwise. */
+    @Volatile
+    var blocks: BlockDirectory? = null
+
+    fun blockHolder(normalizedNumber: String?): BlockHolder? = blocks?.lookup(normalizedNumber)
+
     fun lookup(normalizedNumber: String?): BlockInfo {
         if (normalizedNumber == null || normalizedNumber.length != 10 || !normalizedNumber.all { it.isDigit() }) {
             return BlockInfo(BlockStatus.UNKNOWN)

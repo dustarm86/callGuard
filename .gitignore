@@ -8,3 +8,6 @@ captures/
 
 # built from data-sources by tools/buildNanpaData.py (nanpa publishes no stated terms, so kept out of git for now)
 app/src/main/assets/nanpa.bin
+
+# built from data-sources by tools/buildBlockData.py
+app/src/main/assets/blocks.bin

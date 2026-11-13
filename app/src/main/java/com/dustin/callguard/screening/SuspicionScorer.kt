@@ -36,6 +36,8 @@ data class SuspicionInput(
     val callbackRiskPlace: String? = null,
     // contacts that share this number's first 6 digits
     val contactNeighbors: Int = 0,
+    // who holds this number's 1,000-number block, when the block file is bundled; null when unknown
+    val blockHolderStatus: BlockHolderStatus? = null,
 )
 
 /**
@@ -57,6 +59,8 @@ object SuspicionScorer {
     private const val MANY_COMPLAINTS_AT = 3
     private const val ALLOWED_NEIGHBOR_POINTS = 20
     private const val CONTACT_NEIGHBOR_POINTS = 10
+    private const val UNHELD_BLOCK_POINTS = 35
+    private const val UNHELD_BLOCK_IN_USE_POINTS = 8
     private const val CALLBACK_RISK_POINTS = 15
     private const val BLOCK_REPORTED_POINTS = 10
     private const val BLOCK_REPORTED_AT = 3
@@ -116,6 +120,21 @@ object SuspicionScorer {
                     reasons += "$code is assigned to a carrier but not in service yet"
                 }
                 else -> Unit
+            }
+            // inside an exchange a carrier really holds, a block nobody holds is the sharper clue
+            if (input.blockStatus == BlockStatus.ASSIGNED) {
+                val block = "${number.take(3)}-${number.drop(3).take(3)}-${number.drop(6).take(1)}xxx"
+                when (input.blockHolderStatus) {
+                    BlockHolderStatus.AVAILABLE -> {
+                        score += UNHELD_BLOCK_POINTS
+                        reasons += "the 1,000-number block $block isn't assigned to any carrier right now, so numbers in it shouldn't be in service"
+                    }
+                    BlockHolderStatus.AVAILABLE_IN_USE -> {
+                        score += UNHELD_BLOCK_IN_USE_POINTS
+                        reasons += "the 1,000-number block $block isn't assigned to any carrier, though a few numbers in it still work"
+                    }
+                    else -> Unit
+                }
             }
         }
 

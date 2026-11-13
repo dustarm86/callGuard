@@ -57,6 +57,31 @@ class SuspicionScorerTest {
     }
 
     @Test
+    fun anUnheldBlockInARealExchangeAddsPoints() {
+        val base = SuspicionScorer.score(input().copy(blockStatus = BlockStatus.ASSIGNED)).score
+        val free = SuspicionScorer.score(
+            input().copy(blockStatus = BlockStatus.ASSIGNED, blockHolderStatus = com.dustin.callguard.screening.BlockHolderStatus.AVAILABLE),
+        )
+        assertEquals(base + 35, free.score)
+        assertTrue(free.reasons.any { it.contains("315-948-8xxx") && it.contains("isn't assigned to any carrier") })
+        val inUse = SuspicionScorer.score(
+            input().copy(blockStatus = BlockStatus.ASSIGNED, blockHolderStatus = com.dustin.callguard.screening.BlockHolderStatus.AVAILABLE_IN_USE),
+        )
+        assertEquals(base + 8, inUse.score)
+    }
+
+    @Test
+    fun heldOrRetainedBlocksAddNothingAndUnheldBlocksOnlyCountInsideKnownExchanges() {
+        val base = SuspicionScorer.score(input().copy(blockStatus = BlockStatus.ASSIGNED)).score
+        for (status in listOf(com.dustin.callguard.screening.BlockHolderStatus.ASSIGNED, com.dustin.callguard.screening.BlockHolderStatus.RETAINED)) {
+            assertEquals(base, SuspicionScorer.score(input().copy(blockStatus = BlockStatus.ASSIGNED, blockHolderStatus = status)).score)
+        }
+        // an unknown exchange has no block opinion either way
+        val unknown = SuspicionScorer.score(input().copy(blockStatus = BlockStatus.UNKNOWN, blockHolderStatus = com.dustin.callguard.screening.BlockHolderStatus.AVAILABLE))
+        assertEquals(SuspicionScorer.score(input()).score, unknown.score)
+    }
+
+    @Test
     fun plainUnknownCallerIsLow() {
         val result = SuspicionScorer.score(input())
         assertEquals(SuspicionLevel.LOW, result.level)
