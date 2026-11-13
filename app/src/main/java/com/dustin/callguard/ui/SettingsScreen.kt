@@ -253,7 +253,11 @@ private fun NotificationSettings(
         onCheckedChange = { checked -> onChange { it.copy(skipDigestWhenZero = checked) } },
     )
 
-    Button(onClick = { DigestScheduler.sendTestNow(context) }) { Text("send a test summary now") }
+    val notify = LocalNotify.current
+    Button(onClick = {
+        DigestScheduler.sendTestNow(context)
+        notify("test summary queued, it can take a minute to show up in your notifications")
+    }) { Text("send a test summary now") }
     Text(
         "delivery can be a few minutes off because android batches background work to save battery.",
         style = MaterialTheme.typography.bodySmall,

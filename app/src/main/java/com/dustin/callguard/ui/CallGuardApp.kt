@@ -27,11 +27,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -56,6 +61,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun CallGuardTheme(
@@ -162,7 +168,19 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
     }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val feedbackScope = rememberCoroutineScope()
+    val notify: (String) -> Unit = { message ->
+        feedbackScope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+    LaunchedEffect(Unit) { viewModel.messages.collect { notify(it) } }
+
+    CompositionLocalProvider(LocalNotify provides notify) {
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = { TopAppBar(title = { Text("callGuard") }) },
         bottomBar = {
             NavigationBar {
@@ -287,6 +305,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                     complaintStatus = complaintStatus,
                     complaintsRefreshing = complaintsRefreshing,
                     onRefreshComplaints = viewModel::refreshComplaints,
+                    onImportComplaints = viewModel::importComplaintFiles,
                 )
                 else -> SettingsScreen(
                     settings = settings,
@@ -294,6 +313,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                 )
             }
         }
+    }
     }
 }
 

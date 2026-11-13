@@ -1,11 +1,15 @@
 package com.dustin.callguard.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -20,11 +24,13 @@ fun ComplaintPanel(
     status: String,
     refreshing: Boolean,
     onRefresh: () -> Unit,
+    onImport: (List<Uri>) -> Unit,
 ) {
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { onImport(it) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         Text("public complaint data", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
         Text(
-            "the ftc publishes the numbers consumers report as unwanted callers each weekday. this button downloads the last ${ComplaintDownloader.RETENTION_DAYS} days of those public files from ftc.gov. only a file named by date is requested: no phone numbers or personal data are sent. reports are unverified, and spoofed numbers are often innocent people's.",
+            "the ftc publishes the numbers consumers report as unwanted callers each weekday. the most reliable way to load them is to download the daily files from the ftc's do not call data page in chrome and import them here. the refresh button tries to download the last ${ComplaintDownloader.RETENTION_DAYS} days directly, but ftc.gov often refuses apps. no phone numbers or personal data are ever sent. reports are unverified, and spoofed numbers are often innocent people's.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -40,7 +46,10 @@ fun ComplaintPanel(
             Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Button(enabled = !refreshing, onClick = onRefresh) {
-            Text(if (refreshing) "downloading…" else "refresh complaint data")
+            Text(if (refreshing) "working…" else "refresh complaint data")
+        }
+        OutlinedButton(enabled = !refreshing, onClick = { picker.launch(arrayOf("*/*")) }) {
+            Text("import downloaded files")
         }
     }
 }

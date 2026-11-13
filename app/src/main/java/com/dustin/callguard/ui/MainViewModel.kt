@@ -11,7 +11,9 @@ import com.dustin.callguard.data.NumberInfo
 import com.dustin.callguard.data.ScreenedCall
 import com.dustin.callguard.data.ScreenerSettings
 import com.dustin.callguard.data.ScreenerSettingsStore
+import com.dustin.callguard.complaints.ComplaintCsv
 import com.dustin.callguard.complaints.ComplaintDownloader
+import com.dustin.callguard.complaints.ComplaintFileName
 import com.dustin.callguard.complaints.ComplaintIndex
 import com.dustin.callguard.complaints.ComplaintStore
 import com.dustin.callguard.screening.NumberNormalizer
@@ -25,6 +27,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -57,6 +62,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _complaintsRefreshing = MutableStateFlow(false)
     val complaintsRefreshing: StateFlow<Boolean> = _complaintsRefreshing.asStateFlow()
 
+    // short confirmations for the snackbar; dropped when nothing is showing yet
+    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val messages: SharedFlow<String> = _messages.asSharedFlow()
+
     // declared after the flows above so they exist before the loaders can finish
     init {
         viewModelScope.launch(Dispatchers.IO) { _directory.value = NxxDirectoryLoader.load(application) }
@@ -64,6 +73,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** downloads the ftc's recent daily files. only runs when the user taps the button. */
+    /** imports ftc csv files the person downloaded in a browser; the day comes from each file's name. */
+    fun importComplaintFiles(uris: List<android.net.Uri>) {
+        if (uris.isEmpty() || _complaintsRefreshing.value) return
+        _complaintsRefreshing.value = true
+        viewModelScope.launch(Dispatchers.IO) {
+            val resolver = getApplication<Application>().contentResolver
+            var imported = 0
+            var reports = 0
+            val problems = mutableListOf<String>()
+            for (uri in uris) {
+                val name = resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+                    ?.use { if (it.moveToFirst()) it.getString(0) else null }
+                try {
+                    val parsed = ComplaintCsv.parse(resolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }.orEmpty())
+                    val day = ComplaintFileName.dayFrom(name) ?: parsed.maxOfOrNull { it.day }?.let(java.time.LocalDate::parse)
+                    if (parsed.isEmpty() || day == null) {
+                        problems += "${name ?: "a file"} isn't an ftc report file"
+                    } else {
+                        complaintStore.saveDay(day, parsed)
+                        imported++
+                        reports += parsed.size
+                    }
+                } catch (e: Exception) {
+                    problems += "${name ?: "a file"}: ${e.message ?: e.javaClass.simpleName}"
+                }
+            }
+            complaintStore.prune(java.time.LocalDate.now().minusDays(ComplaintDownloader.RETENTION_DAYS.toLong()))
+            _complaints.value = complaintStore.loadIndex()
+            val summary = buildString {
+                append("imported $imported ${if (imported == 1) "file" else "files"} ($reports reports)")
+                if (problems.isNotEmpty()) append(", ${problems.size} skipped: ${problems.first()}")
+            }
+            _complaintStatus.value = summary
+            _messages.tryEmit(summary)
+            _complaintsRefreshing.value = false
+        }
+    }
+
     fun refreshComplaints() {
         if (_complaintsRefreshing.value) return
         _complaintsRefreshing.value = true
@@ -72,6 +119,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val result = ComplaintDownloader(complaintStore).refresh(java.time.LocalDate.now())
             _complaints.value = complaintStore.loadIndex()
             _complaintStatus.value = result.summary()
+            _messages.tryEmit(
+                if (result.downloaded > 0) "downloaded ${result.downloaded} new ${if (result.downloaded == 1) "day" else "days"} (${result.reports} reports)"
+                else "no new complaint data downloaded, see the status under the button"
+            )
             _complaintsRefreshing.value = false
         }
     }
@@ -134,6 +185,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     addedAt = System.currentTimeMillis(),
                 )
             )
+            _messages.tryEmit("allowed ${NumberNormalizer.format(normalizedNumber)}")
         }
         return true
     }
@@ -150,6 +202,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     expiresAt = now + durationMillis,
                 )
             )
+            _messages.tryEmit("allowed ${NumberNormalizer.format(normalizedNumber)} for ${durationMillis / 3_600_000} hours")
         }
     }
 
@@ -160,12 +213,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             database.allowedPrefixDao().upsert(
                 AllowedPrefix(prefix = prefix, label = label.trim(), addedAt = System.currentTimeMillis())
             )
+            _messages.tryEmit("allowed every number starting $prefix")
         }
         return true
     }
 
     fun removeAllowedPrefix(prefix: String) {
-        viewModelScope.launch { database.allowedPrefixDao().deleteByPrefix(prefix) }
+        viewModelScope.launch {
+            database.allowedPrefixDao().deleteByPrefix(prefix)
+            _messages.tryEmit("removed prefix $prefix")
+        }
     }
 
     /** picks up changes made outside the app, like the quick settings tile. */
@@ -176,6 +233,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun removeAllowedNumber(normalizedNumber: String) {
         viewModelScope.launch {
             database.allowedNumberDao().deleteByNumber(normalizedNumber)
+            _messages.tryEmit("removed ${NumberNormalizer.format(normalizedNumber)} from the allowlist")
         }
     }
 
@@ -185,8 +243,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val dao = database.numberInfoDao()
             if (note.isBlank() && tag.isEmpty()) {
                 dao.deleteByNumber(normalizedNumber)
+                _messages.tryEmit("note and tag cleared")
             } else {
                 dao.upsert(NumberInfo(normalizedNumber, note.trim(), tag, System.currentTimeMillis()))
+                _messages.tryEmit("saved")
             }
         }
     }
@@ -194,6 +254,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearLog() {
         viewModelScope.launch {
             database.screenedCallDao().clearAll()
+            _messages.tryEmit("log cleared")
         }
     }
 }

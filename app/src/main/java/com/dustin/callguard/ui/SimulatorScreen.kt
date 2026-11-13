@@ -59,6 +59,7 @@ fun SimulatorScreen(
     complaintStatus: String,
     complaintsRefreshing: Boolean,
     onRefreshComplaints: () -> Unit,
+    onImportComplaints: (List<android.net.Uri>) -> Unit,
 ) {
 
     var numberText by rememberSaveable { mutableStateOf("") }
@@ -190,6 +191,7 @@ fun SimulatorScreen(
             status = complaintStatus,
             refreshing = complaintsRefreshing,
             onRefresh = onRefreshComplaints,
+            onImport = onImportComplaints,
         )
 
         DiagnosticsPanel(diagnosticsHeader)
