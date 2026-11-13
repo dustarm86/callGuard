@@ -43,6 +43,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -244,6 +245,9 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                 onRequestContacts = { permissionLauncher.launch(Manifest.permission.READ_CONTACTS) },
             )
 
+            // keeps each tab's remembered state (collapsed cards and so on) while another tab is showing
+            val tabState = rememberSaveableStateHolder()
+            tabState.SaveableStateProvider(selectedTab) {
             when (selectedTab) {
                 0 -> {
                     val allowedSet = activeAllowedNumbers.map { it.normalizedNumber }.toSet()
@@ -319,6 +323,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                     settings = settings,
                     onChange = viewModel::updateSettings,
                 )
+            }
             }
         }
     }
