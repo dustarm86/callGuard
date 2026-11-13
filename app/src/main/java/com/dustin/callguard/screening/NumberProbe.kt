@@ -56,7 +56,8 @@ object NumberProbe {
         )
 
         val block = input.directory?.lookup(number)
-        sections += ProbeSection("carrier block", blockLines(number, input.directory, block))
+        val holder = input.directory?.blockHolder(number)
+        sections += ProbeSection("carrier block", blockLines(number, input.directory, block, holder))
 
         val reported = input.complaints?.lookup(number)
         val blockReported = input.complaints?.blockLookup(number)
@@ -84,12 +85,13 @@ object NumberProbe {
                 blockReportedNumbers = blockReported?.otherNumbers ?: 0,
                 callbackRiskPlace = callbackPlace,
                 contactNeighbors = contactNeighbors,
+                blockHolderStatus = holder?.status,
             )
         )
         return ProbeResult(sections, suspicion)
     }
 
-    private fun blockLines(number: String, directory: NxxDirectory?, block: BlockInfo?): List<String> {
+    private fun blockLines(number: String, directory: NxxDirectory?, block: BlockInfo?, holder: BlockHolder?): List<String> {
         if (directory == null || block == null) {
             return listOf("carrier data isn't in this install (run tools/buildNanpaData.py, then rebuild the app)")
         }
@@ -107,14 +109,43 @@ object NumberProbe {
                 if (place.isNotEmpty()) lines += "rate center: $place"
                 block.assigned?.let { lines += "code assigned: $it" }
                 if (block.status == BlockStatus.NOT_IN_SERVICE) lines += "assigned but not in service yet"
-                if (block.pooled) {
+                if (holder != null) {
+                    lines += blockHolderLines(number, holder, block)
+                } else if (block.pooled) {
                     lines += "pooled code: this carrier originally held the whole $code, but individual 1,000-number blocks may belong to other carriers"
                 }
             }
         }
         val d = directory.asOf
         lines += "nanpa data as of %04d-%02d-%02d".format(d / 10000, d / 100 % 100, d % 100)
+        directory.blocks?.asOf?.takeIf { holder != null }?.let { b ->
+            lines += "block data as of %04d-%02d-%02d".format(b / 10000, b / 100 % 100, b % 100)
+        }
         return lines
+    }
+
+    private fun blockHolderLines(number: String, holder: BlockHolder, code: BlockInfo): List<String> {
+        val label = "${number.substring(3, 6)}-${number[6]}xxx"
+        return when (holder.status) {
+            BlockHolderStatus.ASSIGNED -> buildList {
+                add(
+                    "1,000-number block $label: held by ${holder.company ?: "an unknown carrier"}" +
+                        holder.ocn?.let { " (OCN $it)" }.orEmpty() +
+                        holder.assigned?.let { ", assigned $it" }.orEmpty(),
+                )
+                if (holder.ocn != null && code.ocn != null && holder.ocn != code.ocn) {
+                    add("that is a different carrier from the one holding the whole exchange, which is normal for pooled numbers")
+                }
+            }
+            BlockHolderStatus.RETAINED -> listOf("1,000-number block $label: kept by the carrier that holds the exchange")
+            BlockHolderStatus.AVAILABLE -> listOf(
+                "1,000-number block $label: not assigned to any carrier right now, so numbers in it shouldn't be in service",
+                "the report can lag a few days behind a brand new assignment",
+            )
+            BlockHolderStatus.AVAILABLE_IN_USE -> listOf(
+                "1,000-number block $label: not assigned to any carrier, but nanpa notes some numbers in it still work (ported in or left over), so this is weaker evidence",
+            )
+        }
     }
 
     private fun complaintLines(index: ComplaintIndex?, stats: com.dustin.callguard.complaints.ComplaintStats?): List<String> {

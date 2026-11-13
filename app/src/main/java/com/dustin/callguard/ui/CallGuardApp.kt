@@ -169,6 +169,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                 blockReportedNumbers = complaints?.blockLookup(number)?.otherNumbers ?: 0,
                 callbackRiskPlace = AreaCodes.callbackRisk(number),
                 contactNeighbors = SuspicionScorer.neighborCount(number, contactNumbers),
+                blockHolderStatus = directory?.blockHolder(number)?.status,
             )
         )
     }

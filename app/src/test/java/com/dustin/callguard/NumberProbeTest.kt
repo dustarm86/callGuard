@@ -52,6 +52,34 @@ class NumberProbeTest {
         assertTrue(lines(result, "relationship to you").any { it.contains("1 of your contacts") })
     }
 
+    private val blockDirectory = NxxDirectory.parse(ByteArrayInputStream(NxxTestData.sample)).also {
+        it.blocks = com.dustin.callguard.screening.BlockDirectory.parse(ByteArrayInputStream(BlockTestData.sample))
+    }
+
+    private fun probeBlocks(text: String) = NumberProbe.run(ProbeInput(text, blockDirectory, null, emptyList(), emptyList(), zone))
+
+    @Test
+    fun anAssignedBlockShowsItsHolderAndNotTheGenericPoolingWarning() {
+        val lines = lines(probeBlocks("315-200-5551"), "carrier block")
+        assertTrue(lines.any { it == "1,000-number block 200-5xxx: held by BOOST SUBSCRIBERCO L.L.C. (OCN 490J), assigned 2014-09" })
+        assertTrue(lines.any { it.contains("different carrier from the one holding the whole exchange") })
+        assertTrue(lines.none { it.startsWith("pooled code:") })
+        assertTrue(lines.any { it == "block data as of 2026-11-13" })
+    }
+
+    @Test
+    fun anUnheldBlockIsShownAndScored() {
+        val result = probeBlocks("315-201-3000")
+        assertTrue(lines(result, "carrier block").any { it.contains("not assigned to any carrier right now") })
+        assertTrue(result.suspicion!!.reasons.any { it.contains("201-3xxx") || it.contains("315-201-3xxx") })
+    }
+
+    @Test
+    fun withoutBlockDataThePoolingWarningStays() {
+        val lines = lines(probe("315-200-5551"), "carrier block")
+        assertTrue(lines.any { it.startsWith("pooled code:") })
+    }
+
     @Test
     fun blankInputHasNothingToProbe() {
         val result = probe("  ")
