@@ -86,11 +86,21 @@ object EnumDns {
         return Answer(flags and 0xF, records)
     }
 
+    /** every answer starts with one line beginning with this, saying in plain words what the lookup did and didn't learn. */
+    const val VERDICT = "result: "
+
+    /** the lookup never got an answer from dns, so nothing was learned about the number. */
+    fun couldntCheck(vararg details: String): List<String> =
+        listOf(VERDICT + "couldn't check. dns never answered, so this says nothing about the number. it is not a \"no\"") +
+            details.toList() +
+            "usually your network is blocking dns lookups to outside servers (a home dns filter, guest wifi, or a vpn). try mobile data or another network"
+
     /** plain-language lines for the probe screen. */
     fun describe(queryName: String, answer: Answer): List<String> {
         val lines = mutableListOf("asked dns for naptr records at $queryName")
         when {
             answer.records.isNotEmpty() -> {
+                lines.add(0, VERDICT + "found an enum record for this number")
                 answer.records.sortedWith(compareBy({ it.order }, { it.preference })).forEach { record ->
                     lines += "service ${record.service} (order ${record.order}, preference ${record.preference})"
                     if (record.regexp.isNotEmpty()) lines += "  rewrite: ${record.regexp}"
@@ -99,14 +109,19 @@ object EnumDns {
                 lines += "someone registered this number in enum, which is unusual for a us number"
             }
             answer.rcode == 3 -> {
+                lines.add(0, VERDICT + "dns answered: no enum record. that is normal for a us number")
                 lines += "no enum record: the name doesn't exist in public dns"
                 lines += "expected for nearly every us number, because the us has no public enum registry. this says nothing about whether the caller is real or spoofed"
             }
             answer.rcode == 0 -> {
+                lines.add(0, VERDICT + "dns answered, but the answer isn't useful, so there is no information")
                 lines += "the name exists but holds no naptr records"
                 lines += "some dns proxies answer this way for record types they don't support, so treat it as no information"
             }
-            else -> lines += "dns answered with ${rcodeName(answer.rcode)}, so there is no usable result"
+            else -> {
+                lines.add(0, VERDICT + "dns answered with an error, so there is no information")
+                lines += "dns answered with ${rcodeName(answer.rcode)}, so there is no usable result"
+            }
         }
         return lines
     }
