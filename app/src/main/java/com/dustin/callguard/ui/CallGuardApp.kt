@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -55,8 +56,12 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun CallGuardTheme(useSystemColors: Boolean = false, content: @Composable () -> Unit) {
-    val darkTheme = isSystemInDarkTheme()
+fun CallGuardTheme(
+    alwaysDark: Boolean = true,
+    useSystemColors: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    val darkTheme = ThemeChoice.useDark(alwaysDark, isSystemInDarkTheme())
     val context = LocalContext.current
     val colorScheme = when {
         useSystemColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
@@ -112,7 +117,6 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
         TrendAnalyzer.analyze(allCalls, ZoneId.systemDefault(), settings.ownNumber)
     }
     var openedNumber by rememberSaveable { mutableStateOf<String?>(null) }
-    var showSimulator by rememberSaveable { mutableStateOf(false) }
     val callCounts = remember(screenedCalls) { screenedCalls.groupingBy { it.normalizedNumber }.eachCount() }
     val failedVerificationNumbers = remember(screenedCalls) {
         screenedCalls
@@ -163,6 +167,12 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                 NavigationBarItem(
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
+                    icon = { Icon(Icons.Default.Build, contentDescription = null) },
+                    label = { Text("tools") },
+                )
+                NavigationBarItem(
+                    selected = selectedTab == 4,
+                    onClick = { selectedTab = 4 },
                     icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                     label = { Text("settings") },
                 )
@@ -240,20 +250,15 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                         ExportShare.shareReport(context, html)
                     },
                 )
-                else -> if (showSimulator) {
-                    SimulatorScreen(
-                        settings = settings,
-                        allowedNumbers = activeAllowedNumbers,
-                        allowedPrefixes = allowedPrefixes,
-                        onBack = { showSimulator = false },
-                    )
-                } else {
-                    SettingsScreen(
-                        settings = settings,
-                        onChange = viewModel::updateSettings,
-                        onOpenSimulator = { showSimulator = true },
-                    )
-                }
+                3 -> SimulatorScreen(
+                    settings = settings,
+                    allowedNumbers = activeAllowedNumbers,
+                    allowedPrefixes = allowedPrefixes,
+                )
+                else -> SettingsScreen(
+                    settings = settings,
+                    onChange = viewModel::updateSettings,
+                )
             }
         }
     }
