@@ -26,9 +26,9 @@ object EnumLookup {
     private const val DOH_URL = "https://cloudflare-dns.com/dns-query"
 
     suspend fun query(context: Context, number: String): List<String> {
-        val name = EnumDns.name(number) ?: return listOf("enum needs a full 10 digit north american number")
+        val name = EnumDns.name(number) ?: return listOf(EnumDns.VERDICT + "can't check. enum needs a full 10 digit north american number")
         val network = context.getSystemService(ConnectivityManager::class.java)?.activeNetwork
-            ?: return listOf("no network connection, so dns can't be asked")
+            ?: return EnumDns.couldntCheck("there is no network connection")
         val systemFailure = try {
             val packet = withTimeout(5_000) { rawQuery(network, name) }
             return EnumDns.describe(name, EnumDns.parse(packet)) + "answered by your phone's own dns resolver"
@@ -43,7 +43,7 @@ object EnumLookup {
             listOf("your phone's dns resolver didn't answer ($systemFailure), so cloudflare's public resolver was asked over https instead") +
                 EnumDns.describe(name, EnumDns.parse(packet))
         } catch (e: Exception) {
-            listOf(
+            EnumDns.couldntCheck(
                 "asked dns for naptr records at $name",
                 "your phone's dns resolver failed: $systemFailure",
                 "the https fallback failed too: ${e.message ?: e.javaClass.simpleName}",

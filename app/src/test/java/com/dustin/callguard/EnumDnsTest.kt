@@ -99,6 +99,25 @@ class EnumDnsTest {
     }
 
     @Test
+    fun everyKindOfAnswerStartsWithAPlainVerdict() {
+        fun first(answer: EnumDns.Answer) = EnumDns.describe("x.e164.arpa", answer).first()
+        val record = EnumDns.NaptrRecord(10, 100, "u", "E2U+sip", "", "")
+        assertTrue(first(EnumDns.Answer(0, listOf(record))).startsWith("result: found an enum record"))
+        assertTrue(first(EnumDns.Answer(3, emptyList())).startsWith("result: dns answered: no enum record. that is normal"))
+        assertTrue(first(EnumDns.Answer(0, emptyList())).startsWith("result: dns answered, but the answer isn't useful"))
+        assertTrue(first(EnumDns.Answer(2, emptyList())).startsWith("result: dns answered with an error"))
+    }
+
+    @Test
+    fun aFailureToReachDnsIsNeverMistakenForANo() {
+        val lines = EnumDns.couldntCheck("detail one", "detail two")
+        assertTrue(lines.first().startsWith("result: couldn't check"))
+        assertTrue(lines.first().contains("not a \"no\""))
+        assertTrue(lines.containsAll(listOf("detail one", "detail two")))
+        assertTrue(lines.last().contains("try mobile data"))
+    }
+
+    @Test
     fun buildsAWellFormedNaptrQuery() {
         val query = EnumDns.buildQuery("4.3.2.1.e164.arpa")
         // header: id 0, recursion desired, one question

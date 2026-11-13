@@ -136,7 +136,13 @@ fun ProbePanel(
                         SelectionContainer {
                             Column {
                                 enumLines.forEach { line ->
-                                    Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    val verdict = line.startsWith(EnumDns.VERDICT)
+                                    Text(
+                                        line,
+                                        style = if (verdict) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall,
+                                        fontWeight = if (verdict) androidx.compose.ui.text.font.FontWeight.Bold else null,
+                                        color = if (verdict) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
                             }
                         }
