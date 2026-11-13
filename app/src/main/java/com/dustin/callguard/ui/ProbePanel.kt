@@ -59,6 +59,8 @@ fun ProbePanel(
 
     SectionCard(
         title = "probe a number",
+        summary = "carrier, complaints and history for one number",
+        collapsible = true,
         about = "checks a number against offline carrier data, the ftc's public reports and your own log. it only reads data: it never calls, texts or pings the number, so a spammer can't tell you looked.",
     ) {
         OutlinedTextField(

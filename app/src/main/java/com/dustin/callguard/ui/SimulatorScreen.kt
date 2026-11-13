@@ -111,6 +111,8 @@ fun SimulatorScreen(
         Text("tools", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 8.dp))
         SectionCard(
             title = "simulate a call",
+            summary = "test a made-up call against your settings",
+            collapsible = true,
             about = "runs a made-up call through callGuard's real decision code using your current settings, allowlist and prefixes. leave the number empty to simulate a hidden number. it can't show whether android actually silences the ring.",
         ) {
             OutlinedTextField(
