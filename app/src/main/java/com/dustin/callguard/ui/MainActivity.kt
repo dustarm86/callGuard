@@ -14,7 +14,10 @@ class MainActivity : ComponentActivity() {
             // the theme reads the same settings the screens use, so the color switch applies right away
             val viewModel: MainViewModel = viewModel()
             val settings by viewModel.settings.collectAsState()
-            CallGuardTheme(useSystemColors = settings.useSystemColors) {
+            CallGuardTheme(
+                alwaysDark = settings.alwaysDark,
+                useSystemColors = settings.useSystemColors,
+            ) {
                 CallGuardApp(viewModel)
             }
         }

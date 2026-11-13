@@ -29,6 +29,8 @@ data class ScreenerSettings(
     val rejectInsteadOfSilence: Boolean = false,
     // off = callGuard's green and violet colors; on = the phone's wallpaper colors
     val useSystemColors: Boolean = false,
+    // on = always use the dark look; off = follow the phone's light or dark setting
+    val alwaysDark: Boolean = true,
 ) {
     fun isWorkDay(day: DayOfWeek): Boolean =
         (workDaysMask and (1 shl (day.value - 1))) != 0
@@ -73,6 +75,7 @@ class ScreenerSettingsStore(context: Context) {
             skipDigestWhenZero = prefs.getBoolean(KEY_SKIP_ZERO, defaults.skipDigestWhenZero),
             rejectInsteadOfSilence = prefs.getBoolean(KEY_REJECT, defaults.rejectInsteadOfSilence),
             useSystemColors = prefs.getBoolean(KEY_SYSTEM_COLORS, defaults.useSystemColors),
+            alwaysDark = prefs.getBoolean(KEY_ALWAYS_DARK, defaults.alwaysDark),
         )
     }
 
@@ -111,6 +114,7 @@ class ScreenerSettingsStore(context: Context) {
             .putBoolean(KEY_SKIP_ZERO, settings.skipDigestWhenZero)
             .putBoolean(KEY_REJECT, settings.rejectInsteadOfSilence)
             .putBoolean(KEY_SYSTEM_COLORS, settings.useSystemColors)
+            .putBoolean(KEY_ALWAYS_DARK, settings.alwaysDark)
             .apply()
     }
 
@@ -133,5 +137,6 @@ class ScreenerSettingsStore(context: Context) {
         const val KEY_SKIP_ZERO = "skipDigestWhenZero"
         const val KEY_REJECT = "rejectInsteadOfSilence"
         const val KEY_SYSTEM_COLORS = "useSystemColors"
+        const val KEY_ALWAYS_DARK = "alwaysDark"
     }
 }

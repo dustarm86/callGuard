@@ -1,6 +1,5 @@
 package com.dustin.callguard.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,7 +17,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,9 +48,7 @@ fun SimulatorScreen(
     settings: ScreenerSettings,
     allowedNumbers: List<AllowedNumber>,
     allowedPrefixes: List<AllowedPrefix>,
-    onBack: () -> Unit,
 ) {
-    BackHandler(onBack = onBack)
 
     var numberText by rememberSaveable { mutableStateOf("") }
     var isContact by rememberSaveable { mutableStateOf(false) }
@@ -94,7 +90,7 @@ fun SimulatorScreen(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TextButton(onClick = onBack) { Text("back to settings") }
+        Text("tools", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 8.dp))
         Text("simulate a call", style = MaterialTheme.typography.titleLarge)
         Text(
             "runs a made-up call through callGuard's real decision code using your current settings, allowlist and prefixes. leave the number empty to simulate a hidden number. it can't show whether android actually silences the ring.",
@@ -169,6 +165,12 @@ fun SimulatorScreen(
                 }
             }
         }
+        Text("call timing", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
+        Text(
+            "tap a screened call in the log to see how fast callGuard answered it and whether it was the first call since the app process started. the csv and report on the trends tab include the same timing columns.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(modifier = Modifier.height(16.dp))
     }
 }

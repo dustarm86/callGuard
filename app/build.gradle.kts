@@ -1,6 +1,7 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
 }
@@ -28,10 +29,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
     }
@@ -56,4 +53,32 @@ dependencies {
     ksp("androidx.room:room-compiler:$roomVersion")
 
     testImplementation("junit:junit:4.13.2")
+}
+
+// unit tests: always run, list every test with pass/fail, and finish with a one-line total
+tasks.withType<Test>().configureEach {
+    outputs.upToDateWhen { false }
+    testLogging {
+        events("passed", "skipped", "failed")
+        exceptionFormat = TestExceptionFormat.FULL
+        showStandardStreams = false
+    }
+    doLast {
+        var tests = 0
+        var skipped = 0
+        var failed = 0
+        reports.junitXml.outputLocation.get().asFile
+            .listFiles { file -> file.extension == "xml" }
+            ?.forEach { file ->
+                val match = Regex("""<testsuite [^>]*?tests="(\d+)" skipped="(\d+)" failures="(\d+)" errors="(\d+)"""")
+                    .find(file.readText())
+                if (match != null) {
+                    val (t, s, f, e) = match.destructured
+                    tests += t.toInt()
+                    skipped += s.toInt()
+                    failed += f.toInt() + e.toInt()
+                }
+            }
+        println("unit tests: $tests ran, ${tests - skipped - failed} passed, $failed failed, $skipped skipped")
+    }
 }
