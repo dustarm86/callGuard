@@ -48,6 +48,7 @@ fun SimulatorScreen(
     settings: ScreenerSettings,
     allowedNumbers: List<AllowedNumber>,
     allowedPrefixes: List<AllowedPrefix>,
+    diagnosticsHeader: List<String>,
 ) {
 
     var numberText by rememberSaveable { mutableStateOf("") }
@@ -165,6 +166,8 @@ fun SimulatorScreen(
                 }
             }
         }
+        DiagnosticsPanel(diagnosticsHeader)
+
         Text("call timing", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
         Text(
             "tap a screened call in the log to see how fast callGuard answered it and whether it was the first call since the app process started. the csv and report on the trends tab include the same timing columns.",

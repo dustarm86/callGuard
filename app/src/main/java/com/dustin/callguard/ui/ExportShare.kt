@@ -7,6 +7,8 @@ import com.dustin.callguard.data.ScreenedCall
 import com.dustin.callguard.trends.CsvExporter
 import java.io.File
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.time.ZoneId
 
 /** writes exports to the app cache and opens android's share sheet for them. */
@@ -17,6 +19,11 @@ object ExportShare {
 
     fun shareReport(context: Context, html: String) {
         share(context, "callguard-report-${LocalDate.now()}.html", "text/html", html)
+    }
+
+    fun shareDiagnostics(context: Context, text: String) {
+        val stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmm"))
+        share(context, "callguard-diagnostics-$stamp.txt", "text/plain", text)
     }
 
     private fun share(context: Context, fileName: String, mimeType: String, content: String) {

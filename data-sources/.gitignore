@@ -1,0 +1,3 @@
+# raw downloads used to build the bundled lookup data; the built result lives in the app assets
+data-sources/*.zip
+data-sources/*.txt

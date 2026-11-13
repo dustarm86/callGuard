@@ -21,9 +21,9 @@ class CsvExporterTest {
             ScreenedCall(2, null, null, millis(9), "SILENCED"),
         )
         val lines = CsvExporter.build(calls, zone).trim().lines()
-        assertEquals("date,time,number,area_code,place,state,outcome,caller_verification,received_delay_ms,decision_ms,cold_start", lines[0])
-        assertEquals("2026-11-10,09:05:09,hidden,,,,SILENCED,not_checked,,,false", lines[1])
-        assertEquals("2026-11-10,15:05:09,2125550103,212,Manhattan,NY,SILENCED,failed,,,false", lines[2])
+        assertEquals("date,time,number,area_code,place,state,outcome,caller_verification,received_delay_ms,decision_ms,cold_start,android_details", lines[0])
+        assertEquals("2026-11-10,09:05:09,hidden,,,,SILENCED,not_checked,,,false,", lines[1])
+        assertEquals("2026-11-10,15:05:09,2125550103,212,Manhattan,NY,SILENCED,failed,,,false,", lines[2])
     }
 
     @Test
@@ -35,7 +35,19 @@ class CsvExporterTest {
             ),
         )
         val row = CsvExporter.build(calls, zone).trim().lines()[1]
-        assertEquals("2026-11-10,15:05:09,2125550103,212,Manhattan,NY,SILENCED,failed,120,14,true", row)
+        assertEquals("2026-11-10,15:05:09,2125550103,212,Manhattan,NY,SILENCED,failed,120,14,true,", row)
+    }
+
+    @Test
+    fun writesDetailsSnapshotOnOneLine() {
+        val calls = listOf(
+            ScreenedCall(
+                1, "2125550103", "2125550103", millis(15), "SILENCED",
+                detailsSnapshot = "direction: incoming\nverification: failed",
+            ),
+        )
+        val row = CsvExporter.build(calls, zone).trim().lines()[1]
+        assertEquals(true, row.endsWith("false,direction: incoming | verification: failed"))
     }
 
     @Test

@@ -48,6 +48,7 @@ import com.dustin.callguard.screening.NanpValidator
 import com.dustin.callguard.screening.SuspicionInput
 import com.dustin.callguard.screening.SuspicionResult
 import com.dustin.callguard.screening.SuspicionScorer
+import com.dustin.callguard.trends.Diagnostics
 import com.dustin.callguard.trends.ReportBuilder
 import com.dustin.callguard.trends.TrendAnalyzer
 import java.time.ZoneId
@@ -116,6 +117,18 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
     val trends = remember(allCalls, settings.ownNumber) {
         TrendAnalyzer.analyze(allCalls, ZoneId.systemDefault(), settings.ownNumber)
     }
+    val appVersion = remember {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
+    }
+    val diagnosticsLines = Diagnostics.lines(
+        androidRelease = Build.VERSION.RELEASE,
+        sdkInt = Build.VERSION.SDK_INT,
+        device = "${Build.MANUFACTURER} ${Build.MODEL}",
+        appVersion = appVersion,
+        roleHeld = isRoleHeld,
+        contactsGranted = hasContactsPermission,
+        settings = settings,
+    )
     var openedNumber by rememberSaveable { mutableStateOf<String?>(null) }
     val callCounts = remember(screenedCalls) { screenedCalls.groupingBy { it.normalizedNumber }.eachCount() }
     val failedVerificationNumbers = remember(screenedCalls) {
@@ -246,7 +259,13 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                     hasOwnNumber = settings.ownNumber.isNotBlank(),
                     onExportCsv = { ExportShare.shareCsv(context, allCalls) },
                     onExportReport = {
-                        val html = ReportBuilder.build(allCalls, numberInfo, ZoneId.systemDefault(), ZonedDateTime.now())
+                        val html = ReportBuilder.build(
+                            allCalls,
+                            numberInfo,
+                            ZoneId.systemDefault(),
+                            ZonedDateTime.now(),
+                            diagnosticsLines,
+                        )
                         ExportShare.shareReport(context, html)
                     },
                 )
@@ -254,6 +273,7 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                     settings = settings,
                     allowedNumbers = activeAllowedNumbers,
                     allowedPrefixes = allowedPrefixes,
+                    diagnosticsHeader = diagnosticsLines,
                 )
                 else -> SettingsScreen(
                     settings = settings,

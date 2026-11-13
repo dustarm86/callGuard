@@ -22,6 +22,7 @@ object ReportBuilder {
         numberInfo: Map<String, NumberInfo>,
         zone: ZoneId,
         now: ZonedDateTime,
+        diagnostics: List<String> = emptyList(),
     ): String {
         val rows = calls.sortedByDescending { it.timestamp }.joinToString("\n") { call ->
             val time = ZonedDateTime.ofInstant(Instant.ofEpochMilli(call.timestamp), zone)
@@ -53,6 +54,10 @@ object ReportBuilder {
                 "<td>${esc(notes)}</td></tr>"
         }
 
+        val diagnosticsBlock = if (diagnostics.isEmpty()) "" else
+            "<details><summary>diagnostics</summary><ul>" +
+                diagnostics.joinToString("") { "<li>${esc(it)}</li>" } + "</ul></details>"
+
         return """<!doctype html>
 <html lang="en">
 <head>
@@ -70,11 +75,14 @@ object ReportBuilder {
   th { position: sticky; top: 0; background: Canvas; font-size: .8rem; text-transform: lowercase; opacity: .8; }
   tbody tr:nth-child(even) { background: rgba(128,128,128,.08); }
   .num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  details { margin: 0 0 16px; opacity: .8; }
+  summary { cursor: pointer; }
 </style>
 </head>
 <body>
 <h1>callGuard log</h1>
 <p>${calls.size} calls · generated ${esc(now.format(headerTime))}</p>
+$diagnosticsBlock
 <div class="wrap">
 <table>
 <thead><tr><th>when</th><th>number</th><th>where</th><th>result</th><th>verification</th><th>timing</th><th>notes</th></tr></thead>

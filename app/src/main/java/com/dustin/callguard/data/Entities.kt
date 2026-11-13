@@ -33,6 +33,8 @@ data class ScreenedCall(
     val decisionMs: Long? = null,
     // true when this was the first call since the app process started
     @ColumnInfo(defaultValue = "0") val coldStart: Boolean = false,
+    // android's own call details for this call, one "label: value" per line (null on older entries)
+    val detailsSnapshot: String? = null,
 )
 
 /** mirrors android's Connection.VERIFICATION_STATUS_* values (stir/shaken result from the carrier). */

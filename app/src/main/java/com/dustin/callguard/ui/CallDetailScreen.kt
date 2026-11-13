@@ -187,6 +187,14 @@ fun CallDetailScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    call.detailsSnapshot?.takeIf { it.isNotBlank() }?.let { snapshot ->
+                        Text(
+                            text = snapshot,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                 }
                 Text(
                     text = outcome?.label ?: call.outcome,

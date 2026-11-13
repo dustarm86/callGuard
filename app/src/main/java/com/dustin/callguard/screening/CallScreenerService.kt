@@ -65,6 +65,8 @@ class CallScreenerService : CallScreeningService() {
         if (!hasContactsPermission) return allowResponse()
 
         val rawNumber = callDetails.handle?.schemeSpecificPart?.takeIf { it.isNotBlank() }
+        val snapshot = CallDetailsSnapshot.describe(callDetails)
+        Log.i(TAG, "call details: ${snapshot.replace("\n", " | ")}")
         val normalizedNumber = NumberNormalizer.normalize(rawNumber)
         val database = AppDatabase.get(applicationContext)
         val settings = ScreenerSettingsStore(applicationContext).load()
@@ -111,6 +113,7 @@ class CallScreenerService : CallScreeningService() {
                     receivedDelayMs = receivedDelayMs,
                     decisionMs = SystemClock.elapsedRealtime() - startedAt,
                     coldStart = coldStart,
+                    detailsSnapshot = snapshot,
                 )
             )
             screenedCallDao.deleteOlderThan(nowMillis - LOG_RETENTION_MS)
