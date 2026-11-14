@@ -197,6 +197,8 @@ fun SimulatorScreen(
             onImport = onImportComplaints,
         )
 
+        CarrierDataPanel()
+
         DiagnosticsPanel(diagnosticsHeader)
 
         SectionCard(
