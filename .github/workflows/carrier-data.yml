@@ -1,0 +1,51 @@
+# builds the carrier data files from nanpa's public reports twice a month and publishes them where the app can
+# download them as a backup source: a github release named carrier-data, and a one-commit branch named data.
+name: carrier data
+
+on:
+  schedule:
+    - cron: "17 6 1,15 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: download the nanpa reports
+        run: |
+          mkdir -p data-sources
+          for name in CoCodeAssignment_Utilized_AllStates_Public ThousandsBlockAssignment_All; do
+            curl --fail --location --retry 3 --silent --show-error -A "Mozilla/5.0" -o "$name.zip" "https://reports.nanpa.com/public/$name.zip"
+            unzip -qo "$name.zip" -d data-sources
+          done
+
+      - name: build the data files
+        run: |
+          mkdir -p out
+          python3 tools/buildNanpaData.py data-sources/CoCodeAssignment_Utilized_AllStates_Public.txt out/nanpa.bin
+          python3 tools/buildBlockData.py data-sources/ThousandsBlockAssignment_All.txt out/blocks.bin
+          ls -l out
+
+      - name: publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view carrier-data > /dev/null 2>&1 || gh release create carrier-data --title "carrier data" --notes "prebuilt nanpa data, refreshed by the carrier data workflow"
+          gh release upload carrier-data out/nanpa.bin out/blocks.bin --clobber
+
+      - name: publish the data branch
+        run: |
+          cp out/nanpa.bin out/blocks.bin "$RUNNER_TEMP/"
+          git config user.name "carrier data workflow"
+          git config user.email "actions@users.noreply.github.com"
+          git checkout --orphan data
+          git rm -rf . --quiet
+          cp "$RUNNER_TEMP/nanpa.bin" "$RUNNER_TEMP/blocks.bin" .
+          git add nanpa.bin blocks.bin
+          git commit --quiet -m "carrier data $(date -u +%F)"
+          git push --force origin data
