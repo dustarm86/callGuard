@@ -1,7 +1,5 @@
 package com.dustin.callguard.carrierdata
 
-import java.net.HttpURLConnection
-import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -14,16 +12,8 @@ object SourceCheck {
 
     data class Outcome(val label: String, val worked: Boolean, val detail: String)
 
-    const val NANPA = "https://reports.nanpa.com/public"
-    const val RELEASE = "https://github.com/dustarm86/callGuard/releases/latest/download"
-
-    val sources = listOf(
-        Source("nanpa exchanges, plain request", "$NANPA/CoCodeAssignment_Utilized_AllStates_Public.zip", false),
-        Source("nanpa exchanges, browser-style request", "$NANPA/CoCodeAssignment_Utilized_AllStates_Public.zip", true),
-        Source("nanpa 1,000-blocks, browser-style request", "$NANPA/ThousandsBlockAssignment_All.zip", true),
-        Source("callGuard github release, exchanges", "$RELEASE/nanpa.bin", false),
-        Source("callGuard github release, blocks", "$RELEASE/blocks.bin", false),
-    )
+    // one line per source, asking for the exchange file, which every source has
+    val sources = CarrierSources.all.map { Source(it.label, it.exchangesUrl, it.browserHeaders) }
 
     /** the total size from a "content-range: bytes 0-0/12345" header, or null when it isn't there. */
     fun totalFromContentRange(header: String?): Long? =
@@ -57,16 +47,9 @@ object SourceCheck {
     suspend fun run(): List<String> = withContext(Dispatchers.IO) { summary(sources.map(::check)) }
 
     private fun check(source: Source): Outcome {
-        val connection = URL(source.url).openConnection() as HttpURLConnection
+        val connection = CarrierHttp.open(source.url, source.browserHeaders, connectMs = 8_000, readMs = 8_000)
         return try {
-            connection.connectTimeout = 8_000
-            connection.readTimeout = 8_000
             connection.setRequestProperty("Range", "bytes=0-0")
-            if (source.browserHeaders) {
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36")
-                connection.setRequestProperty("Accept", "application/zip,application/octet-stream,*/*")
-                connection.setRequestProperty("Referer", "https://www.nationalnanpa.com/")
-            }
             val code = connection.responseCode
             val type = connection.contentType
             val total = totalFromContentRange(connection.getHeaderField("Content-Range")) ?: connection.contentLengthLong.takeIf { it > 1 }

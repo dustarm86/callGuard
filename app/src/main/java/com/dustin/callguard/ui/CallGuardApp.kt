@@ -119,6 +119,8 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
     val contactNumbers by viewModel.contactNumbers.collectAsState()
     val complaintStatus by viewModel.complaintStatus.collectAsState()
     val complaintsRefreshing by viewModel.complaintsRefreshing.collectAsState()
+    val carrierDataLines by viewModel.carrierDataLines.collectAsState()
+    val carrierDataBusy by viewModel.carrierDataBusy.collectAsState()
     val allowedNumbers by viewModel.allowedNumbers.collectAsState()
     val allowedPrefixes by viewModel.allowedPrefixes.collectAsState()
     // entries past their expiry no longer count, even before the cleanup removes them
@@ -318,6 +320,9 @@ fun CallGuardApp(viewModel: MainViewModel = viewModel()) {
                     complaintsRefreshing = complaintsRefreshing,
                     onRefreshComplaints = viewModel::refreshComplaints,
                     onImportComplaints = viewModel::importComplaintFiles,
+                    carrierDataLines = carrierDataLines,
+                    carrierDataBusy = carrierDataBusy,
+                    onUpdateCarrierData = viewModel::updateCarrierData,
                 )
                 else -> SettingsScreen(
                     settings = settings,
