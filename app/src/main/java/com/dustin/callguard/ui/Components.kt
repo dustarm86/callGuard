@@ -1,5 +1,6 @@
 package com.dustin.callguard.ui
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,7 +48,15 @@ fun SectionCard(
     initiallyOpen: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    var open by rememberSaveable(key = "section-open-$title") { mutableStateOf(initiallyOpen) }
+    // a collapsible card remembers whether it was open, even after the app is closed and reopened
+    val prefs = LocalContext.current.applicationContext.getSharedPreferences("callguard_ui", Context.MODE_PRIVATE)
+    var open by rememberSaveable(key = "section-open-$title") {
+        mutableStateOf(if (collapsible) prefs.getBoolean("open-$title", initiallyOpen) else initiallyOpen)
+    }
+    val toggleOpen = {
+        open = !open
+        prefs.edit().putBoolean("open-$title", open).apply()
+    }
     var aboutOpen by rememberSaveable(key = "section-about-$title") { mutableStateOf(false) }
     val showBody = !collapsible || open
 
@@ -59,7 +69,7 @@ fun SectionCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(if (collapsible) Modifier.clickable { open = !open } else Modifier),
+                    .then(if (collapsible) Modifier.clickable { toggleOpen() } else Modifier),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
