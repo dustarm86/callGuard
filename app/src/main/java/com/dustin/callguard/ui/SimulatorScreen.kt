@@ -63,6 +63,7 @@ fun SimulatorScreen(
     onImportComplaints: (List<android.net.Uri>) -> Unit,
     carrierDataLines: List<String>,
     carrierDataBusy: Boolean,
+    carrierProgress: com.dustin.callguard.carrierdata.CarrierProgress?,
     onUpdateCarrierData: () -> Unit,
 ) {
 
@@ -204,6 +205,7 @@ fun SimulatorScreen(
             directory = directory,
             updateLines = carrierDataLines,
             updating = carrierDataBusy,
+            progress = carrierProgress,
             onUpdate = onUpdateCarrierData,
         )
 

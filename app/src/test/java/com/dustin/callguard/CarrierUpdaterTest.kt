@@ -24,7 +24,7 @@ class CarrierUpdaterTest {
     private val installed = mutableListOf<String>()
 
     private fun updater(minCodes: Int = 1, fetch: (CarrierSource) -> Built) =
-        CarrierUpdater(fetch = fetch, install = { _, source -> installed += source.label }, minExchanges = minCodes, minBlockCodes = minCodes)
+        CarrierUpdater(fetch = { source, _ -> fetch(source) }, install = { _, source -> installed += source.label }, minExchanges = minCodes, minBlockCodes = minCodes)
 
     @Test
     fun skipsFailedAndOutOfDateSourcesAndStopsAtTheFirstGoodOne() {

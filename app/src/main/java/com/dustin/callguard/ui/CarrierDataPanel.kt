@@ -3,7 +3,11 @@ package com.dustin.callguard.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.Modifier
+import com.dustin.callguard.carrierdata.CarrierProgress
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -28,6 +32,7 @@ fun CarrierDataPanel(
     directory: NxxDirectory?,
     updateLines: List<String>,
     updating: Boolean,
+    progress: CarrierProgress?,
     onUpdate: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -46,6 +51,16 @@ fun CarrierDataPanel(
     ) {
         CarrierLines(CarrierDataInfo.lines(directory, lastUpdate), verdictFirst = false)
         Button(enabled = !updating, onClick = onUpdate) { Text(if (updating) "updating…" else "update carrier data") }
+        if (updating) {
+            // a bar that fills as bytes arrive, or just shows activity while the size isn't known yet
+            val fraction = progress?.fraction
+            if (fraction != null) {
+                LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+            } else {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+            if (progress != null) CarrierLines(progress.lines(), verdictFirst = false)
+        }
         if (updateLines.isNotEmpty()) CarrierLines(updateLines, verdictFirst = true)
         OutlinedButton(
             enabled = !checking && !updating,

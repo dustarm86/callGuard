@@ -18,7 +18,7 @@ data class Checked(val exchanges: Int, val nanpaAsOf: Int, val blockCodes: Int, 
  * source passes every check, so the app never ends up with half an update.
  */
 class CarrierUpdater(
-    private val fetch: (CarrierSource) -> Built,
+    private val fetch: (CarrierSource, (CarrierProgress) -> Unit) -> Built,
     private val install: (Built, CarrierSource) -> Unit,
     private val minExchanges: Int = 50_000,
     private val minBlockCodes: Int = 50_000,
@@ -37,12 +37,13 @@ class CarrierUpdater(
         currentNanpaAsOf: Int,
         currentBlocksAsOf: Int,
         progress: (List<String>) -> Unit = {},
+        onDownload: (CarrierProgress) -> Unit = {},
     ): List<String> {
         val log = mutableListOf<String>()
         for (source in sources) {
             progress(listOf("result: updating…") + log + "trying ${source.label}…")
             try {
-                val built = fetch(source)
+                val built = fetch(source, onDownload)
                 val checked = check(built)
                 if (checked.nanpaAsOf < currentNanpaAsOf || checked.blocksAsOf < currentBlocksAsOf) {
                     log += "✗ ${source.label}: has older data (exchanges ${CarrierDataInfo.date(checked.nanpaAsOf)}, " +

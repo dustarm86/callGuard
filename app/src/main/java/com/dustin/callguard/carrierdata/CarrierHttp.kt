@@ -21,13 +21,24 @@ object CarrierHttp {
         return connection
     }
 
-    /** runs [block] on the body of a successful download; any other answer is an IOException naming the http code. */
-    fun <T> download(url: String, browserHeaders: Boolean, block: (InputStream) -> T): T {
+    /**
+     * runs [block] on the body of a successful download; any other answer is an IOException naming the http code.
+     * [onBytes] hears how many bytes have arrived and the total size, when the server says it.
+     */
+    fun <T> download(
+        url: String,
+        browserHeaders: Boolean,
+        onBytes: ((done: Long, total: Long?) -> Unit)? = null,
+        block: (InputStream) -> T,
+    ): T {
         val connection = open(url, browserHeaders)
         try {
             val code = connection.responseCode
             if (code != HttpURLConnection.HTTP_OK) throw IOException("http $code")
-            return connection.inputStream.use(block)
+            val total = connection.contentLengthLong.takeIf { it > 0 }
+            onBytes?.invoke(0, total)
+            val stream = if (onBytes == null) connection.inputStream else CountingInputStream(connection.inputStream, total, onBytes = onBytes)
+            return stream.use(block)
         } finally {
             connection.disconnect()
         }

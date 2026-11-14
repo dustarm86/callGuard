@@ -66,6 +66,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _carrierDataLines = MutableStateFlow<List<String>>(emptyList())
     val carrierDataLines: StateFlow<List<String>> = _carrierDataLines.asStateFlow()
     private val _carrierDataBusy = MutableStateFlow(false)
+    private val _carrierProgress = MutableStateFlow<com.dustin.callguard.carrierdata.CarrierProgress?>(null)
+    val carrierProgress: StateFlow<com.dustin.callguard.carrierdata.CarrierProgress?> = _carrierProgress.asStateFlow()
     val carrierDataBusy: StateFlow<Boolean> = _carrierDataBusy.asStateFlow()
 
     /** downloads newer carrier data, trying each source in turn. only runs when the user taps the button. */
@@ -80,13 +82,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val current = _directory.value
             val lines = try {
                 com.dustin.callguard.carrierdata.CarrierUpdater(
-                    fetch = { source -> com.dustin.callguard.carrierdata.CarrierFetcher.fetch(source, today) },
+                    fetch = { source, report -> com.dustin.callguard.carrierdata.CarrierFetcher.fetch(source, today, report) },
                     install = { built, source -> store.install(built, source.label, today) },
                 ).run(
                     sources = com.dustin.callguard.carrierdata.CarrierSources.all,
                     currentNanpaAsOf = current?.asOf ?: 0,
                     currentBlocksAsOf = current?.blocks?.asOf ?: 0,
-                    progress = { _carrierDataLines.value = it },
+                    // each new source starts with no byte count until its first bytes arrive
+                    progress = {
+                        _carrierDataLines.value = it
+                        _carrierProgress.value = null
+                    },
+                    onDownload = { _carrierProgress.value = it },
                 )
             } catch (e: Exception) {
                 listOf("result: couldn't update: ${e.message ?: e.javaClass.simpleName}")
@@ -94,6 +101,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val updated = lines.first().startsWith("result: updated")
             if (updated) _directory.value = NxxDirectoryLoader.load(app)
             _carrierDataLines.value = lines
+            _carrierProgress.value = null
             _carrierDataBusy.value = false
             _messages.tryEmit(if (updated) "carrier data updated" else "couldn't update carrier data")
         }
