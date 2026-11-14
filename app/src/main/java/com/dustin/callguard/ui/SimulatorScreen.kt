@@ -61,6 +61,9 @@ fun SimulatorScreen(
     complaintsRefreshing: Boolean,
     onRefreshComplaints: () -> Unit,
     onImportComplaints: (List<android.net.Uri>) -> Unit,
+    carrierDataLines: List<String>,
+    carrierDataBusy: Boolean,
+    onUpdateCarrierData: () -> Unit,
 ) {
 
     var numberText by rememberSaveable { mutableStateOf("") }
@@ -197,7 +200,12 @@ fun SimulatorScreen(
             onImport = onImportComplaints,
         )
 
-        CarrierDataPanel()
+        CarrierDataPanel(
+            directory = directory,
+            updateLines = carrierDataLines,
+            updating = carrierDataBusy,
+            onUpdate = onUpdateCarrierData,
+        )
 
         DiagnosticsPanel(diagnosticsHeader)
 

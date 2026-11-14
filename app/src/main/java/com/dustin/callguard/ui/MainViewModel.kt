@@ -62,6 +62,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _complaintsRefreshing = MutableStateFlow(false)
     val complaintsRefreshing: StateFlow<Boolean> = _complaintsRefreshing.asStateFlow()
 
+    // the carrier data update: progress lines for the screen, and whether one is running
+    private val _carrierDataLines = MutableStateFlow<List<String>>(emptyList())
+    val carrierDataLines: StateFlow<List<String>> = _carrierDataLines.asStateFlow()
+    private val _carrierDataBusy = MutableStateFlow(false)
+    val carrierDataBusy: StateFlow<Boolean> = _carrierDataBusy.asStateFlow()
+
+    /** downloads newer carrier data, trying each source in turn. only runs when the user taps the button. */
+    fun updateCarrierData() {
+        if (_carrierDataBusy.value) return
+        _carrierDataBusy.value = true
+        _carrierDataLines.value = listOf("result: updating…")
+        viewModelScope.launch(Dispatchers.IO) {
+            val app = getApplication<Application>()
+            val store = com.dustin.callguard.carrierdata.CarrierStore(app)
+            val today = java.time.LocalDate.now().let { it.year * 10000 + it.monthValue * 100 + it.dayOfMonth }
+            val current = _directory.value
+            val lines = try {
+                com.dustin.callguard.carrierdata.CarrierUpdater(
+                    fetch = { source -> com.dustin.callguard.carrierdata.CarrierFetcher.fetch(source, today) },
+                    install = { built, source -> store.install(built, source.label, today) },
+                ).run(
+                    sources = com.dustin.callguard.carrierdata.CarrierSources.all,
+                    currentNanpaAsOf = current?.asOf ?: 0,
+                    currentBlocksAsOf = current?.blocks?.asOf ?: 0,
+                    progress = { _carrierDataLines.value = it },
+                )
+            } catch (e: Exception) {
+                listOf("result: couldn't update: ${e.message ?: e.javaClass.simpleName}")
+            }
+            val updated = lines.first().startsWith("result: updated")
+            if (updated) _directory.value = NxxDirectoryLoader.load(app)
+            _carrierDataLines.value = lines
+            _carrierDataBusy.value = false
+            _messages.tryEmit(if (updated) "carrier data updated" else "couldn't update carrier data")
+        }
+    }
+
     // contact numbers for the neighbor check; held in memory only, never stored or logged
     private val _contactNumbers = MutableStateFlow<Set<String>>(emptySet())
     val contactNumbers: StateFlow<Set<String>> = _contactNumbers.asStateFlow()
